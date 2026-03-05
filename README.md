@@ -1,0 +1,2 @@
+# enterprise_internal_asset_auction_disposal_platform
+企业废旧资产内部拍卖与处置平台
