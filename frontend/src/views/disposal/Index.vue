@@ -1,4 +1,5 @@
 <template>
+  <!-- 资产处置管理页面 -->
   <div class="disposal-management">
     <el-card>
       <template #header>
@@ -7,8 +8,11 @@
         </div>
       </template>
 
+      <!-- 标签页切换：待处置/已处置/处置记录 -->
       <el-tabs v-model="activeTab">
+        <!-- 待处置资产列表 -->
         <el-tab-pane label="待处置" name="pending">
+          <!-- 查询表单 -->
           <el-form :inline="true" :model="queryForm" class="query-form">
             <el-form-item label="资产编号">
               <el-input v-model="queryForm.assetCode" placeholder="请输入资产编号" clearable />
@@ -22,6 +26,7 @@
             </el-form-item>
           </el-form>
 
+          <!-- 待处置资产表格 -->
           <el-table
             v-loading="loading"
             :data="pendingList"
@@ -36,6 +41,7 @@
             </el-table-column>
             <el-table-column prop="confirmTime" label="成交确认时间" width="180" />
             <el-table-column prop="paymentTime" label="付款确认时间" width="180" />
+            <!-- 操作列：确认处置、查看 -->
             <el-table-column label="操作" width="120" fixed="right" align="center">
               <template #default="{ row }">
                 <el-button type="primary" size="small" @click="handleConfirm(row)">
@@ -49,7 +55,9 @@
           </el-table>
         </el-tab-pane>
 
+        <!-- 已处置资产列表 -->
         <el-tab-pane label="已处置" name="completed">
+          <!-- 已完成表格 -->
           <el-table
             v-loading="loading"
             :data="completedList"
@@ -74,7 +82,9 @@
           </el-table>
         </el-tab-pane>
 
+        <!-- 处置历史记录 -->
         <el-tab-pane label="处置记录" name="history">
+          <!-- 历史记录表格 -->
           <el-table
             v-loading="loading"
             :data="historyList"
@@ -104,6 +114,7 @@
       title="确认资产处置"
       width="700px"
     >
+      <!-- 资产信息展示 -->
       <el-descriptions :column="2" border>
         <el-descriptions-item label="资产编号">{{ currentDisposal.assetCode }}</el-descriptions-item>
         <el-descriptions-item label="资产名称">{{ currentDisposal.assetName }}</el-descriptions-item>
@@ -114,6 +125,7 @@
         </el-descriptions-item>
       </el-descriptions>
 
+      <!-- 处置表单：备注、凭证上传 -->
       <el-divider />
 
       <el-form :model="confirmForm" label-width="120px">
@@ -144,13 +156,14 @@
         </el-form-item>
       </el-form>
 
+      <!-- 对话框按钮：取消、确认处置 -->
       <template #footer>
         <el-button @click="confirmDialogVisible = false">取消</el-button>
         <el-button type="success" @click="handleSubmitConfirm">确认处置</el-button>
       </template>
     </el-dialog>
   
-  <!-- 图片预览 -->
+  <!-- 图片预览对话框 -->
   <el-dialog v-model="previewDialogVisible" title="预览" width="600px">
     <el-image :src="previewUrl" style="width: 100%" fit="contain" />
   </el-dialog>
@@ -158,6 +171,7 @@
 </template>
 
 <script setup>
+// 导入依赖
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -169,18 +183,22 @@ import {
   confirmDisposal
 } from '@/api'
 
+// 初始化路由和状态管理
 const userStore = useUserStore()
 const router = useRouter()
 const route = useRoute()
 
-const activeTab = ref('pending')
+// 响应式数据
+const activeTab = ref('pending') // 当前激活的标签页
 const loading = ref(false)
-const pendingList = ref([])
-const completedList = ref([])
-const historyList = ref([])
+const pendingList = ref([]) // 待处置列表
+const completedList = ref([]) // 已完成列表
+const historyList = ref([]) // 历史记录列表
 
+// 允许的标签页
 const allowedTabs = ['pending', 'completed', 'history']
 
+// 应用路由参数中的 tab
 const applyRouteTab = () => {
   const tab = route.query.tab
   if (typeof tab === 'string' && allowedTabs.includes(tab)) {
@@ -188,6 +206,7 @@ const applyRouteTab = () => {
   }
 }
 
+// 监听 tab 切换，加载对应数据
 watch(activeTab, (tab) => {
   if (tab === 'pending') {
     loadPendingList()

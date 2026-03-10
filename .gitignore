@@ -1,0 +1,28 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.history/
+
+# Logs
+*.log
+
+# Java / Maven
+backend/target/
+**/target/
+
+# Node / Vite
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Local env / secrets
+.env
+.env.*
+backend/src/main/resources/application.yml
+
+# Uploads / runtime files
+uploads/
+**/uploads/
+

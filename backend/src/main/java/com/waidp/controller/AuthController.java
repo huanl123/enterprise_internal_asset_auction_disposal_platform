@@ -23,10 +23,15 @@ public class AuthController {
      */
     @PostMapping("/login")
     public Result<UserLoginResponse> login(@RequestBody LoginRequest request) {
-        String token = authService.login(request.username(), request.password());
-        UserInfo user = authService.getUserInfoByUsername(request.username());
-
-        return Result.success("登录成功", new UserLoginResponse(user, token));
+        try {
+            String token = authService.login(request.username(), request.password());
+            UserInfo user = authService.getUserInfoByUsername(request.username());
+            return Result.success("登录成功", new UserLoginResponse(user, token));
+        } catch (RuntimeException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error("登录失败，请稍后重试");
+        }
     }
 
     /**
@@ -34,8 +39,14 @@ public class AuthController {
      */
     @PostMapping("/register")
     public Result<Void> register(@RequestBody User user) {
-        authService.register(user);
-        return Result.success("注册成功", null);
+        try {
+            authService.register(user);
+            return Result.success("注册成功", null);
+        } catch (RuntimeException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error("注册失败，请稍后重试");
+        }
     }
 
     /**

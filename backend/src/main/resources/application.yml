@@ -34,7 +34,7 @@ upload:
   path: E:/Study/code/Java/enterprise_internal_asset_auction_disposal_platform/uploads
 
 server:
-  port: 8084  # 修改为8084端口避免冲突
+  port: 8084
   servlet:
     context-path: /
 

@@ -27,9 +27,28 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     Optional<Transaction> findByAuctionId(Long auctionId);
 
     /**
+     * 批量根据拍卖ID查询交易单
+     */
+    List<Transaction> findByAuctionIdIn(List<Long> auctionIds);
+
+    /**
      * 查询超时未确认的交易单
      */
     List<Transaction> findByConfirmStatusInAndConfirmDeadlineBefore(List<String> confirmStatuses, LocalDateTime time);
+
+    /**
+     * 查询付款超时仍未确认收款的交易单
+     */
+    List<Transaction> findByConfirmStatusInAndPaymentStatusInAndPaymentDeadlineBefore(
+            List<String> confirmStatuses,
+            List<String> paymentStatuses,
+            LocalDateTime time
+    );
+
+    /**
+     * 查询状态不一致的交易单（例如：确认已过期但付款仍为待确认）。
+     */
+    List<Transaction> findByConfirmStatusInAndPaymentStatusIn(List<String> confirmStatuses, List<String> paymentStatuses);
 
     /**
      * 根据资产ID + 付款状态 + 处置状态查询交易单（用于处置确认）
@@ -98,7 +117,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     );
 
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.winnerId = :winnerId " +
-           "AND LOWER(t.paymentStatus) = 'pending' AND LOWER(t.confirmStatus) = 'confirmed' " +
-           "AND (t.paymentVoucher IS NULL OR TRIM(t.paymentVoucher) = '')")
+           "AND LOWER(t.paymentStatus) = 'pending' AND LOWER(t.confirmStatus) = 'confirmed'")
     long countPendingPaymentByWinnerId(@Param("winnerId") Long winnerId);
 }

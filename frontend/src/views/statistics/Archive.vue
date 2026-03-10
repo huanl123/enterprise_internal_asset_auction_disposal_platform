@@ -3,8 +3,9 @@
     <el-card shadow="never">
       <template #header>
         <div class="card-header">
-          <span>资产处置档案查询</span>
-          <el-tag type="info" effect="plain">查询已处置资产完整档案</el-tag>
+          <div class="header-main">
+            <div class="page-title">{{ archivePageTitle }}</div>
+          </div>
         </div>
       </template>
 
@@ -143,6 +144,24 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
 import { getDisposedArchiveAssets, getDisposedArchiveDetail } from '@/api'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
+const isAdminView = computed(() => userStore.hasAnyRole('系统管理员'))
+const isNormalUserView = computed(() => userStore.hasAnyRole('普通员工'))
+const isScopedDepartmentView = computed(() => !isAdminView.value && !isNormalUserView.value)
+const scopedDepartmentName = computed(() => {
+  const directName = userStore.user?.departmentName
+  if (directName && String(directName).trim()) {
+    return String(directName).trim()
+  }
+  return '本部门'
+})
+const archivePageTitle = computed(() => (
+  isNormalUserView.value
+    ? '我的资产处置档案查询'
+    : (isScopedDepartmentView.value ? `资产处置档案查询 · ${scopedDepartmentName.value}` : '资产处置档案查询')
+))
 
 const loading = ref(false)
 const detailLoading = ref(false)
@@ -288,8 +307,18 @@ onMounted(() => {
 .card-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+}
+
+.header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.page-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
 }
 
 .query-form {

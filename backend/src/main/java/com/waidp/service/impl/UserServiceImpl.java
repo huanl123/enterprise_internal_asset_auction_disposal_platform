@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Objects;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
@@ -34,7 +35,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public Page<User> getUsers(String username, String name, String role, Long departmentId,
                                 Boolean status, Pageable pageable) {
-        Page<User> userPage = userRepository.searchUsers(username, name, role, departmentId, status, pageable);
+        String normalizedRole = (role == null || role.trim().isEmpty()) ? null : normalizeRoleCode(role);
+        Page<User> userPage = userRepository.searchUsers(username, name, normalizedRole, departmentId, status, pageable);
         List<User> users = userPage.getContent();
         Set<Long> departmentIds = users.stream()
                 .map(User::getDepartmentId)
@@ -86,7 +88,7 @@ public class UserServiceImpl implements UserService {
     public void createUser(User user) {
         // 检查用户名是否已存在
         if (userRepository.existsByUsername(user.getUsername())) {
-            throw new RuntimeException("用户名已存在");
+            throw new RuntimeException("该工号已被使用，请更换工号或直接登录。");
         }
 
         // 强制验证部门ID不能为空
@@ -100,6 +102,7 @@ public class UserServiceImpl implements UserService {
 
         // 加密密码
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setRole(normalizeRoleCode(user.getRole()));
         user.setStatus(true);
         user.setCreateTime(LocalDateTime.now());
         user.setUpdateTime(LocalDateTime.now());
@@ -117,7 +120,7 @@ public class UserServiceImpl implements UserService {
         // 只更新允许修改的字段
         existing.setName(user.getName());
         existing.setPhone(user.getPhone());
-        existing.setRole(user.getRole());
+        existing.setRole(normalizeRoleCode(user.getRole()));
 
         // 如果部门ID改变，更新部门
         if (user.getDepartmentId() != null && !user.getDepartmentId().equals(existing.getDepartmentId())) {
@@ -218,5 +221,20 @@ public class UserServiceImpl implements UserService {
         // 这里需要实现检查逻辑
         // 可以查询Transaction表中该用户是否有状态为pending或confirmed的交易
         return false;
+    }
+
+    private String normalizeRoleCode(String role) {
+        if (role == null || role.trim().isEmpty()) {
+            return "NORMAL_USER";
+        }
+        String normalized = role.trim().replaceFirst("(?i)^ROLE_", "");
+        String key = normalized.toLowerCase(Locale.ROOT);
+        return switch (key) {
+            case "admin", "system_admin", "系统管理员" -> "SYSTEM_ADMIN";
+            case "asset_specialist", "资产专员" -> "ASSET_SPECIALIST";
+            case "finance_specialist", "财务专员" -> "FINANCE_SPECIALIST";
+            case "employee", "normal_user", "user", "普通员工" -> "NORMAL_USER";
+            default -> throw new RuntimeException("无效角色: " + role);
+        };
     }
 }

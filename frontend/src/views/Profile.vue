@@ -1,4 +1,5 @@
 <template>
+  <!-- 个人中心页面 -->
   <div class="profile">
     <el-card>
       <template #header>
@@ -6,11 +7,14 @@
       </template>
 
       <el-row :gutter="20">
+        <!-- 左侧：头像和基本信息 -->
         <el-col :xs="24" :md="8">
           <div class="avatar-section">
+            <!-- 头像显示 -->
             <el-avatar :size="150" :src="avatarPreview">
               {{ user.name?.charAt(0) }}
             </el-avatar>
+            <!-- 头像上传功能 -->
             <div class="avatar-actions">
               <el-upload
                 class="avatar-uploader"
@@ -22,12 +26,14 @@
                 <el-button size="small">上传头像</el-button>
               </el-upload>
             </div>
+            <!-- 用户名和角色标签 -->
             <h3 class="username">{{ user.name }}</h3>
             <el-tag :type="getRoleType(user.role)" size="large">
               {{ getRoleText(user.role) }}
             </el-tag>
           </div>
         </el-col>
+        <!-- 右侧：个人信息编辑表单 -->
         <el-col :xs="24" :md="16">
           <el-form
             ref="formRef"
@@ -36,9 +42,11 @@
             label-width="100px"
             class="profile-form"
           >
+            <!-- 不可修改字段：工号、部门、注册时间 -->
             <el-form-item label="工号">
               <el-input v-model="user.username" disabled />
             </el-form-item>
+            <!-- 可修改字段：姓名、联系方式 -->
             <el-form-item label="姓名" prop="name">
               <el-input v-model="form.name" />
             </el-form-item>
@@ -61,9 +69,8 @@
         </el-col>
       </el-row>
 
+      <!-- 个人统计信息 -->
       <el-divider />
-
-      <!-- 个人统计 -->
       <h3>我的统计</h3>
       <el-row :gutter="20" class="stats-row">
         <el-col :xs="12" :sm="6">
@@ -88,9 +95,9 @@
         </el-col>
       </el-row>
 
-      <!-- 最近活动 -->
+      <!-- 最近活动时间线 -->
       <el-divider />
-      <h3>最近活动</h3>
+      <h3>中标并成交资产明细</h3>
       <el-timeline>
         <el-timeline-item
           v-for="activity in recentActivities"
@@ -106,26 +113,32 @@
 </template>
 
 <script setup>
+// 导入依赖
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { updateProfile, getBiddingStatistics, uploadAvatar } from '@/api'
 
+// 初始化用户状态管理
 const userStore = useUserStore()
 const user = reactive(userStore.user || {})
 
+// 表单引用和提交状态
 const formRef = ref()
 const submitting = ref(false)
 const uploading = ref(false)
 
+// 头像预览
 const avatarPreview = ref(user.avatar || '')
 const avatarObjectUrl = ref('')
 
+// 表单数据
 const form = reactive({
   name: user.name || '',
   phone: user.phone || ''
 })
 
+// 表单验证规则
 const rules = {
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
   phone: [
@@ -134,6 +147,7 @@ const rules = {
   ]
 }
 
+// 统计数据
 const stats = reactive({
   auctionCount: 0,
   winCount: 0,
@@ -141,8 +155,10 @@ const stats = reactive({
   totalAmount: 0
 })
 
+// 最近活动列表
 const recentActivities = ref([])
 
+// 获取角色标签类型
 const getRoleType = (role) => {
   const roleMap = {
     'admin': 'danger',
@@ -159,6 +175,7 @@ const getRoleType = (role) => {
   return roleMap[role] || 'info'
 }
 
+// 获取角色文本
 const getRoleText = (role) => {
   const roleMap = {
     'admin': '系统管理员',
@@ -175,6 +192,7 @@ const getRoleText = (role) => {
   return roleMap[role] || '未知'
 }
 
+// 提交表单修改
 const handleSubmit = async () => {
   const valid = await formRef.value.validate()
   if (!valid) return
@@ -187,7 +205,7 @@ const handleSubmit = async () => {
       avatar: avatarPreview.value || undefined
     })
     ElMessage.success('保存成功')
-    // 更新store中的用户信息
+    // 更新 store 中的用户信息
     userStore.setUser({
       ...userStore.user,
       name: form.name,
@@ -200,6 +218,8 @@ const handleSubmit = async () => {
     submitting.value = false
   }
 }
+
+
 
 const handleReset = () => {
   form.name = user.name

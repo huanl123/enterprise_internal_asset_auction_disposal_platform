@@ -80,9 +80,9 @@
         <el-form-item label="资产原值" prop="originalValue">
           <el-input-number
             v-model="form.originalValue"
-            :min="0"
+            :min="0.01"
             :precision="2"
-            :step="100"
+            :step="0.01"
             controls-position="right"
             style="width: 100%"
           />
@@ -146,6 +146,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AssetImageWall from '@/components/asset/AssetImageWall.vue'
+import { validatePositiveMoney, MONEY_VALIDATION_MESSAGE } from '@/utils/amountValidation'
 import {
   getDepartments,
   getActiveDepreciationRules,
@@ -350,6 +351,19 @@ const handleSubmit = async () => {
   const valid = await formRef.value.validate()
   if (!valid) return
 
+  if (!validatePositiveMoney(form.originalValue)) {
+    ElMessage.error(`资产原值${MONEY_VALIDATION_MESSAGE}`)
+    return
+  }
+  if (!validatePositiveMoney(currentValue.value)) {
+    ElMessage.error(`当前价值${MONEY_VALIDATION_MESSAGE}`)
+    return
+  }
+  if (!validatePositiveMoney(startPrice.value)) {
+    ElMessage.error(`起拍价${MONEY_VALIDATION_MESSAGE}`)
+    return
+  }
+
   if (wallImages.value.length === 0) {
     ElMessage.warning('请至少上传一张资产图片')
     return
@@ -383,7 +397,7 @@ const handleSubmit = async () => {
     }
 
     ElMessage.success('资产创建成功，已提交审核')
-    goBack()
+    handleReset()
   } catch (error) {
     if (assetId) {
       try {

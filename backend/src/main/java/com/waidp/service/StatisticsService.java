@@ -1,41 +1,36 @@
 package com.waidp.service;
 
-import com.waidp.dto.*;
+import com.waidp.dto.BiddingStatistics;
+import com.waidp.dto.DashboardStatistics;
+import com.waidp.dto.DepartmentDisposalStatistics;
+import com.waidp.dto.DisposalStatistics;
 
 import java.util.List;
+import java.util.Map;
 
 /**
- * 统计服务接口
+ * Statistics service.
  */
 public interface StatisticsService {
 
-    /**
-     * 获取员工竞拍记录
-     */
-    List<BiddingStatistics> getBiddingStatistics(Long userId, String startDate, String endDate, String period);
+    List<BiddingStatistics> getBiddingStatistics(Long userId, String startDate, String endDate, String period,
+                                                 Long currentUserId, String currentRole);
 
-    /**
-     * 获取所有员工的竞拍记录汇总
-     */
-    List<BiddingStatistics> getAllBiddingStatistics(String startDate, String endDate, String period, String role);
+    List<BiddingStatistics> getAllBiddingStatistics(String startDate, String endDate, String period, String role,
+                                                    Long departmentId, Long currentUserId, String currentRole);
 
-    /**
-     * 获取资产处置统计
-     */
-    DisposalStatistics getDisposalStatistics(String startDate, String endDate, String period);
+    DisposalStatistics getDisposalStatistics(String startDate, String endDate, String period,
+                                             Long departmentId, Long currentUserId, String currentRole);
 
-    /**
-     * 获取部门资产处置统计
-     */
-    List<DepartmentDisposalStatistics> getDepartmentDisposalStatistics(String startDate, String endDate, String period);
+    List<DepartmentDisposalStatistics> getDepartmentDisposalStatistics(String startDate, String endDate, String period,
+                                                                       Long departmentId, Long currentUserId, String currentRole);
 
-    /**
-     * 获取仪表盘统计数据
-     */
-    DashboardStatistics getDashboardStatistics();
+    List<Map<String, Object>> getDisposalTrend(String period, Long currentUserId, String currentRole);
 
-    /**
-     * 获取近6个月成交趋势
-     */
-    List<DashboardStatistics.TrendPoint> getDealTrend(String period, String month);
+    List<DepartmentDisposalStatistics> getDepartmentDisposalComparison(String period, String point,
+                                                                       Long departmentId, Long currentUserId, String currentRole);
+
+    DashboardStatistics getDashboardStatistics(Long currentUserId, String currentRole);
+
+    List<DashboardStatistics.TrendPoint> getDealTrend(String period, String month, Long currentUserId, String currentRole);
 }

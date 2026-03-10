@@ -20,10 +20,9 @@
         </el-form-item>
         <el-form-item label="角色">
           <el-select v-model="queryForm.role" placeholder="请选择角色" clearable>
-            <el-option label="系统管理员" value="admin" />
-            <el-option label="资产专员" value="asset_specialist" />
-            <el-option label="财务专员" value="finance_specialist" />
-            <el-option label="普通员工" value="employee" />
+            <el-option label="资产专员" value="ASSET_SPECIALIST" />
+            <el-option label="财务专员" value="FINANCE_SPECIALIST" />
+            <el-option label="普通员工" value="NORMAL_USER" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
@@ -134,9 +133,9 @@
         </el-form-item>
         <el-form-item label="角色" prop="role">
           <el-select v-model="form.role" placeholder="请选择角色" style="width: 100%">
-            <el-option label="资产专员" value="asset_specialist" />
-            <el-option label="财务专员" value="finance_specialist" />
-            <el-option label="普通员工" value="employee" />
+            <el-option label="资产专员" value="ASSET_SPECIALIST" />
+            <el-option label="财务专员" value="FINANCE_SPECIALIST" />
+            <el-option label="普通员工" value="NORMAL_USER" />
           </el-select>
         </el-form-item>
         <el-form-item label="所属部门" prop="departmentId">
@@ -259,6 +258,24 @@ const getRoleText = (role) => {
   return roleMap[normalized] || '未知'
 }
 
+const toRoleCode = (role) => {
+  const normalized = normalizeRole(role)
+  const roleMap = {
+    'admin': 'SYSTEM_ADMIN',
+    'system_admin': 'SYSTEM_ADMIN',
+    'asset_specialist': 'ASSET_SPECIALIST',
+    'finance_specialist': 'FINANCE_SPECIALIST',
+    'employee': 'NORMAL_USER',
+    'normal_user': 'NORMAL_USER',
+    'user': 'NORMAL_USER',
+    '系统管理员': 'SYSTEM_ADMIN',
+    '资产专员': 'ASSET_SPECIALIST',
+    '财务专员': 'FINANCE_SPECIALIST',
+    '普通员工': 'NORMAL_USER'
+  }
+  return roleMap[normalized] || role
+}
+
 const loadDepartments = async () => {
   try {
     const res = await getDepartments()
@@ -343,7 +360,7 @@ const handleEdit = (row) => {
     username: row.username,
     name: row.name,
     phone: row.phone,
-    role: row.role,
+    role: toRoleCode(row.role),
     departmentId: row.departmentId
   })
   dialogVisible.value = true

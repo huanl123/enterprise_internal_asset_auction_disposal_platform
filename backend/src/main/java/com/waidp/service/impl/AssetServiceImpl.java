@@ -11,6 +11,7 @@ import com.waidp.repository.DepartmentRepository;
 import com.waidp.repository.DepreciationRuleRepository;
 import com.waidp.service.AssetService;
 import com.waidp.service.AssetHistoryService;
+import com.waidp.util.AmountValidationUtils;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 /**
  * 资产服务实现
@@ -91,6 +93,20 @@ public class AssetServiceImpl implements AssetService {
 
     @Override
     public void createAsset(Asset asset, Long operatorId) {
+        if (asset == null) {
+            throw new IllegalArgumentException("资产信息不能为空");
+        }
+        if (asset.getName() == null || asset.getName().trim().isEmpty()) {
+            throw new IllegalArgumentException("资产名称不能为空");
+        }
+        if (asset.getPurchaseDate() == null) {
+            throw new IllegalArgumentException("购置日期不能为空");
+        }
+        if (asset.getDepreciationRuleId() == null) {
+            throw new IllegalArgumentException("请选择折旧规则");
+        }
+        AmountValidationUtils.requirePositiveAmount(asset.getOriginalValue(), "资产原值");
+
         logger.info("开始创建资产，资产名称: {}", asset.getName());
         
         // 强制验证部门ID不能为空
@@ -104,11 +120,9 @@ public class AssetServiceImpl implements AssetService {
         asset.setDepartment(department);
 
         // 绑定折旧规则（用于持久化折旧规则关联）
-        if (asset.getDepreciationRuleId() != null) {
-            DepreciationRule rule = depreciationRuleRepository.findById(asset.getDepreciationRuleId())
-                    .orElseThrow(() -> new RuntimeException("选择的折旧规则不存在"));
-            asset.setDepreciationRule(rule);
-        }
+        DepreciationRule rule = depreciationRuleRepository.findById(asset.getDepreciationRuleId())
+                .orElseThrow(() -> new RuntimeException("选择的折旧规则不存在"));
+        asset.setDepreciationRule(rule);
         
         // 如果资产编号为空，则自动生成
         if (asset.getCode() == null || asset.getCode().trim().isEmpty()) {
@@ -129,7 +143,7 @@ public class AssetServiceImpl implements AssetService {
         // 确保startPrice不为null
         if (asset.getStartPrice() == null) {
             if (asset.getCurrentValue() != null) {
-                asset.setStartPrice(asset.getCurrentValue().multiply(new BigDecimal("0.8")));
+                asset.setStartPrice(asset.getCurrentValue().multiply(new BigDecimal("0.8")).setScale(2, RoundingMode.HALF_UP));
                 logger.debug("startPrice为null，基于currentValue计算: {}", asset.getStartPrice());
             } else {
                 asset.setStartPrice(BigDecimal.ZERO);
@@ -139,6 +153,9 @@ public class AssetServiceImpl implements AssetService {
         
         logger.debug("资产创建前验证 - currentValue: {}, startPrice: {}", 
                     asset.getCurrentValue(), asset.getStartPrice());
+
+        AmountValidationUtils.requirePositiveAmount(asset.getCurrentValue(), "当前价值");
+        AmountValidationUtils.requirePositiveAmount(asset.getStartPrice(), "起拍价");
 
         asset.setCreateTime(LocalDateTime.now());
         asset.setUpdateTime(LocalDateTime.now());

@@ -1,4 +1,5 @@
 <template>
+  <!-- 财务管理页面 -->
   <div class="finance-management">
     <el-card>
       <template #header>
@@ -7,8 +8,11 @@
         </div>
       </template>
 
+      <!-- 标签页切换：待审核/付款待审核/历史 -->
       <el-tabs v-model="activeTab">
+        <!-- 待审核资产列表 -->
         <el-tab-pane label="待审核" name="pending">
+          <!-- 查询表单 -->
           <el-form :inline="true" :model="queryForm" class="query-form">
             <el-form-item label="资产编号">
               <el-input v-model="queryForm.assetCode" placeholder="请输入资产编号" clearable />
@@ -22,6 +26,7 @@
             </el-form-item>
           </el-form>
 
+          <!-- 资产表格 -->
           <el-table
             v-loading="loading"
             :data="pendingList"
@@ -42,6 +47,7 @@
             <el-table-column prop="createTime" label="提交时间" width="180">
               <template #default="{ row }">{{ formatDate(row.createTime) }}</template>
             </el-table-column>
+            <!-- 操作列：审核、查看 -->
             <el-table-column label="操作" width="150" fixed="right" align="center">
               <template #default="{ row }">
                 <el-button type="primary" size="small" @click="handleApprove(row)">
@@ -55,7 +61,9 @@
           </el-table>
         </el-tab-pane>
 
+        <!-- 付款待审核列表 -->
         <el-tab-pane label="付款待审核" name="payment">
+          <!-- 交易表格 -->
           <el-table
             v-loading="loading"
             :data="paymentList"
@@ -85,6 +93,7 @@
             </el-table-column>
             <el-table-column prop="paymentDeadline" label="付款截止时间" width="180" />
             <el-table-column prop="confirmTime" label="确认成交时间" width="180" />
+            <!-- 操作列：确认收款、拒绝 -->
             <el-table-column label="操作" width="200" fixed="right" align="center">
               <template #default="{ row }">
                 <el-button type="success" size="small" @click="handleConfirmPayment(row)">
@@ -98,7 +107,9 @@
           </el-table>
         </el-tab-pane>
 
+        <!-- 审核历史列表 -->
         <el-tab-pane label="审核历史" name="history">
+          <!-- 历史记录表格 -->
           <el-table
             v-loading="loading"
             :data="historyList"
@@ -128,6 +139,7 @@
       title="资产定价审核"
       width="700px"
     >
+      <!-- 资产信息展示 -->
       <el-descriptions :column="2" border>
         <el-descriptions-item label="资产编号">{{ currentAsset.code }}</el-descriptions-item>
         <el-descriptions-item label="资产名称">{{ currentAsset.name }}</el-descriptions-item>
@@ -137,6 +149,7 @@
         <el-descriptions-item label="折旧规则">{{ currentAsset.depreciationRuleName }}</el-descriptions-item>
       </el-descriptions>
 
+      <!-- 审核选项：保留价、起拍价调整、备注 -->
       <el-divider />
 
       <el-form :model="approveForm" label-width="120px">
@@ -149,8 +162,9 @@
         <el-form-item label="调整起拍价">
           <el-input-number
             v-model="approveForm.startPrice"
-            :min="0"
-            :step="100"
+            :min="0.01"
+            :step="0.01"
+            :precision="2"
             controls-position="right"
             style="width: 200px"
           />
@@ -159,8 +173,9 @@
         <el-form-item v-if="approveForm.hasReservePrice" label="保留价">
           <el-input-number
             v-model="approveForm.reservePrice"
-            :min="0"
-            :step="100"
+            :min="0.01"
+            :step="0.01"
+            :precision="2"
             controls-position="right"
             style="width: 200px"
           />
@@ -176,6 +191,7 @@
         </el-form-item>
       </el-form>
 
+      <!-- 对话框按钮：取消、拒绝、通过 -->
       <template #footer>
         <el-button @click="approveDialogVisible = false">取消</el-button>
         <el-button type="danger" @click="handleRejectApprove">拒绝</el-button>
@@ -253,6 +269,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import request from '@/api/request'
+import { validatePositiveMoney, MONEY_VALIDATION_MESSAGE } from '@/utils/amountValidation'
 import { 
   confirmPayment, 
   rejectPayment, 
@@ -430,13 +447,18 @@ const handleSubmitApprove = async () => {
       return
     }
     
-    if (approveForm.startPrice <= 0) {
-      ElMessage.error('起拍价必须大于0')
+    if (!validatePositiveMoney(approveForm.startPrice)) {
+      ElMessage.error(`起拍价${MONEY_VALIDATION_MESSAGE}`)
       return
     }
     
-    if (approveForm.hasReservePrice && approveForm.reservePrice <= 0) {
-      ElMessage.error('保留价必须大于0')
+    if (approveForm.hasReservePrice && !validatePositiveMoney(approveForm.reservePrice)) {
+      ElMessage.error(`保留价${MONEY_VALIDATION_MESSAGE}`)
+      return
+    }
+
+    if (approveForm.hasReservePrice && Number(approveForm.reservePrice) < Number(approveForm.startPrice)) {
+      ElMessage.error('保留价不能低于起拍价')
       return
     }
     

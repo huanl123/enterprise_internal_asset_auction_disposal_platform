@@ -1,5 +1,7 @@
 <template>
+  <!-- 仪表盘页面 -->
   <div class="dashboard">
+    <!-- 欢迎卡片 -->
     <el-card class="welcome-card" shadow="never">
       <div class="welcome">
         <div>
@@ -9,7 +11,9 @@
       </div>
     </el-card>
 
+    <!-- 功能入口区域（根据角色显示不同模块） -->
     <el-row :gutter="20" class="entry-row" :class="{ single: isSingleEntry }">
+      <!-- 遍历可见的功能模块 -->
       <el-col
         v-for="section in visibleEntrySections"
         :key="section.key"
@@ -17,8 +21,10 @@
         :sm="isSingleEntry ? 24 : 12"
         :lg="isSingleEntry ? 24 : 8"
       >
+        <!-- 功能卡片 -->
         <el-card class="entry-card" shadow="hover">
           <template #header>
+            <!-- 卡片头部：标题 + 标签 -->
             <div class="card-header">
               <div class="entry-title">
                 <el-icon class="entry-icon"><component :is="section.icon" /></el-icon>
@@ -27,6 +33,7 @@
               <el-tag v-if="section.tag" size="small" effect="plain">{{ section.tag }}</el-tag>
             </div>
           </template>
+          <!-- 功能按钮组 -->
           <div class="entry-actions">
             <el-button
               v-for="action in section.items"
@@ -43,7 +50,9 @@
       </el-col>
     </el-row>
 
+    <!-- 概览统计区域 -->
     <el-row :gutter="20" class="overview-row">
+      <!-- 左侧卡片：我的竞拍/工作台概览 -->
       <el-col :xs="24" :lg="8">
         <el-card class="overview-card">
           <template #header>
@@ -52,13 +61,17 @@
             </div>
           </template>
 
+          <!-- 员工视图：竞拍统计 -->
           <template v-if="isEmployee">
             <div class="bid-summary">
-              <div class="bid-hint">查看你参与的竞拍情况与进度，确认成交后请在48小时内完成付款。</div>
+              <!-- 提示信息 -->
+              <div class="bid-hint">查看你参与的竞拍情况与进度，确认成交后请在 48 小时内完成付款。</div>
+              <!-- 快捷操作 -->
               <div class="bid-actions">
                 <el-button type="primary" size="small" @click="goTo('/auction/my')">我的竞拍</el-button>
                 <el-button type="success" plain size="small" @click="goTo('/auction')">去参与竞拍</el-button>
               </div>
+              <!-- 竞拍统计数据（可点击跳转） -->
               <div class="bid-stats">
                 <div class="bid-item clickable" @click="goTo('/auction/my', { status: 'in_progress' })">
                   <div class="bid-label">进行中竞拍</div>
@@ -77,7 +90,10 @@
                   <div class="bid-value">{{ formatNumber(bidStats.pendingConfirm) }}</div>
                 </div>
                 <div class="bid-item clickable" @click="goTo('/transaction/my', { confirmStatus: 'confirmed', paymentStatus: 'pending' })">
-                  <div class="bid-label">待付款</div>
+                  <div class="bid-label">待财务确认收款</div>
+
+
+
                   <div class="bid-value">{{ formatNumber(bidStats.pendingPayment) }}</div>
                 </div>
               </div>
@@ -95,7 +111,9 @@
             </div>
           </template>
 
+          <!-- 管理员/专员视图：待办事项 + 关键统计 -->
           <template v-else>
+            <!-- 待办事项列表 -->
             <div v-if="todoList.length" class="todo-list">
               <div v-for="item in todoList" :key="item.label" class="todo-item">
                 <div class="todo-main">
@@ -136,7 +154,8 @@
               <el-button text type="primary" @click="goTo('/auction')">查看拍卖</el-button>
             </div>
           </template>
-          <el-table v-if="recentAuctions.length" :data="recentAuctions" stripe>
+              <!-- 最新动态表格 -->
+              <el-table v-if="recentAuctions.length" :data="recentAuctions" stripe>
             <el-table-column prop="assetName" label="资产名称" min-width="160" />
             <el-table-column prop="currentPrice" label="当前价格" width="120" align="right">
               <template #default="{ row }">
@@ -164,23 +183,29 @@
 </template>
 
 <script setup>
+// 导入依赖
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import {
-  Goods,
-  Histogram,
-  Box,
-  DataAnalysis,
-  User,
-  Wallet
+  Goods, Histogram, Box, DataAnalysis, User, Wallet
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
-import { getDashboardStats, getAuctions, getMyPendingPaymentCount, getFinanceTransactions } from '@/api'
+import {
+  getDashboardStats,
+  getAuctions,
+  getMyPendingPaymentCount,
+  getFinanceTransactions,
+  getPendingApprovals,
+  getPendingDisposalTransactions,
+  getAssets
+} from '@/api'
 
+// 初始化路由和状态管理
 const router = useRouter()
 const userStore = useUserStore()
 
+// 计算属性：用户名和角色
 const userName = computed(() => userStore.user?.name || userStore.user?.realName || '用户')
 const roleLabel = computed(() => {
   const role = userStore.user?.role
@@ -221,6 +246,7 @@ const myBidList = ref([])
 
 const todoStats = reactive({
   pendingAssets: 0,
+  pendingFinanceApprovals: 0,
   pendingPayments: 0,
   pendingDisposals: 0
 })
@@ -323,7 +349,7 @@ const todoList = computed(() => {
   if (userStore.hasAnyRole('财务专员', '系统管理员')) {
     list.push({
       label: '待审核',
-      count: todoStats.pendingAssets,
+      count: todoStats.pendingFinanceApprovals,
       path: '/finance',
       query: { tab: 'pending' },
       tagType: 'warning'
@@ -502,6 +528,46 @@ const loadFinancePendingPaymentTodo = async () => {
   }
 }
 
+const loadFinancePendingApprovalTodo = async () => {
+  if (!userStore.hasAnyRole('财务专员', '系统管理员')) return
+  try {
+    const res = await getPendingApprovals({
+      page: 1,
+      size: 1
+    })
+    todoStats.pendingFinanceApprovals = Number(res.data?.total) || 0
+  } catch (error) {
+    console.error('加载财务待审核数量失败:', error)
+  }
+}
+
+const loadPendingAssetTodo = async () => {
+  if (!userStore.hasAnyRole('资产专员', '系统管理员')) return
+  try {
+    const res = await getAssets({
+      page: 1,
+      pageSize: 1,
+      status: '待审核'
+    })
+    todoStats.pendingAssets = Number(res.data?.total) || 0
+  } catch (error) {
+    console.error('加载待审核资产数量失败:', error)
+  }
+}
+
+const loadPendingDisposalTodo = async () => {
+  if (!userStore.hasAnyRole('ASSET_SPECIALIST', 'asset_specialist', 'ADMIN', 'admin', 'SYSTEM_ADMIN', 'system_admin')) return
+  try {
+    const res = await getPendingDisposalTransactions({
+      page: 1,
+      size: 1
+    })
+    todoStats.pendingDisposals = Number(res.data?.total) || 0
+  } catch (error) {
+    console.error('Failed to load pending disposal count:', error)
+  }
+}
+
 const goTo = (path, query = {}) => {
   router.push({ path, query })
 }
@@ -522,7 +588,10 @@ onMounted(async () => {
     bidStats.wins = data.myBidsWins ?? 0
 
     await loadMyBidSummary()
+    await loadPendingAssetTodo()
+    await loadFinancePendingApprovalTodo()
     await loadFinancePendingPaymentTodo()
+    await loadPendingDisposalTodo()
 
     try {
       recentAuctions.value = await fetchLatestFiveAuctions()

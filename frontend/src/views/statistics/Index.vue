@@ -3,7 +3,7 @@
     <el-card class="page-card" shadow="never">
       <template #header>
         <div class="card-header">
-          <span>统计总览</span>
+          <span>{{ overviewTitle }}</span>
         </div>
       </template>
 
@@ -39,51 +39,38 @@
       </el-row>
 
       <el-row :gutter="16" class="section-row">
-        <el-col :xs="24" :lg="14">
-          <el-card shadow="never">
+        <el-col :span="24">
+          <el-card class="entry-card" shadow="never">
             <template #header>
               <div class="card-header">
                 <span>统计查询入口</span>
               </div>
             </template>
-            <div class="quick-grid">
-              <button class="quick-btn quick-btn-primary" @click="goTo('/statistics/archive')">
-                <span class="quick-title">资产处置档案查询</span>
-                <span class="quick-desc">按资产编号/名称查询完整处置档案、交易单、凭证与流程记录</span>
+            <div class="entry-grid">
+              <button class="entry-btn entry-btn-archive" @click="goTo('/statistics/archive')">
+                <div class="entry-title-wrap">
+                  <span class="entry-title">资产处置档案查询</span>
+                  <span class="entry-pill">档案</span>
+                </div>
+                <span class="entry-desc">按资产编号或名称检索，查看交易单、凭证与流程记录。</span>
+                <span class="entry-action">进入模块</span>
               </button>
-              <button class="quick-btn quick-btn-green" @click="goTo('/statistics/asset')">
-                <span class="quick-title">资产处置统计</span>
-                <span class="quick-desc">按月/季/年查看各部门处置数量、成交金额、流拍率并导出</span>
+              <button class="entry-btn entry-btn-stat" @click="goTo('/statistics/asset')">
+                <div class="entry-title-wrap">
+                  <span class="entry-title">资产处置统计</span>
+                  <span class="entry-pill">统计</span>
+                </div>
+                <span class="entry-desc">查看趋势、部门对比与汇总数据，支持按周期筛选和导出。</span>
+                <span class="entry-action">进入模块</span>
               </button>
-              <button class="quick-btn quick-btn-orange" @click="goTo('/statistics/employee')">
-                <span class="quick-title">员工竞拍记录</span>
-                <span class="quick-desc">查看员工参拍场次、中标次数、违约次数与成交明细</span>
+              <button class="entry-btn entry-btn-employee" @click="goTo('/statistics/employee')">
+                <div class="entry-title-wrap">
+                  <span class="entry-title">员工竞拍记录</span>
+                  <span class="entry-pill">人员</span>
+                </div>
+                <span class="entry-desc">查看员工参拍场次、中标次数、违约次数与成交明细。</span>
+                <span class="entry-action">进入模块</span>
               </button>
-            </div>
-          </el-card>
-        </el-col>
-
-        <el-col :xs="24" :lg="10">
-          <el-card shadow="never">
-            <template #header>
-              <div class="card-header">
-                <span>口径说明</span>
-                <el-icon><DataAnalysis /></el-icon>
-              </div>
-            </template>
-            <div class="tips-list">
-              <div class="tip-item">
-                <div class="tip-title">统计总览</div>
-                <div class="tip-desc">仅展示全局概览与模块入口，不重复展示处置统计图表。</div>
-              </div>
-              <div class="tip-item">
-                <div class="tip-title">资产处置统计</div>
-                <div class="tip-desc">用于正式统计分析与导出，覆盖部门对比、趋势与汇总数据。</div>
-              </div>
-              <div class="tip-item">
-                <div class="tip-title">资产处置档案查询</div>
-                <div class="tip-desc">用于查询单个资产的完整处置链路（交易单、审批、凭证、处置记录）。</div>
-              </div>
             </div>
           </el-card>
         </el-col>
@@ -93,12 +80,26 @@
 </template>
 
 <script setup>
-import { onMounted, reactive } from 'vue'
+import { computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { DataAnalysis, Goods, CircleCheck, Wallet, TrendCharts } from '@element-plus/icons-vue'
+import { Goods, CircleCheck, Wallet, TrendCharts } from '@element-plus/icons-vue'
 import { getDashboardStats } from '@/api'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
+
+const isScopedDepartmentView = computed(() => !userStore.hasAnyRole('系统管理员'))
+const scopedDepartmentName = computed(() => {
+  const directName = userStore.user?.departmentName
+  if (directName && String(directName).trim()) {
+    return String(directName).trim()
+  }
+  return '本部门'
+})
+const overviewTitle = computed(() => (
+  isScopedDepartmentView.value ? `统计总览 · ${scopedDepartmentName.value}` : '统计总览'
+))
 
 const stats = reactive({
   totalAssets: 0,
@@ -132,10 +133,13 @@ onMounted(() => {
 <style scoped>
 .statistics-overview {
   padding: 20px;
+  background: linear-gradient(180deg, #f5f7fb 0%, #ffffff 100%);
 }
 
 .page-card {
   background: #fff;
+  border: 1px solid #e8edf5;
+  border-radius: 12px;
 }
 
 .card-header {
@@ -146,95 +150,117 @@ onMounted(() => {
 }
 
 .stat-row {
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .stat-card {
   border-radius: 12px;
+  border: 1px solid #e6ebf2;
+  background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(32, 60, 100, 0.08);
 }
 
 .section-row {
   margin-top: 8px;
 }
 
-.quick-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
+.entry-card {
+  border: 1px solid #e8edf5;
 }
 
-.quick-btn {
-  width: 100%;
+.entry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.entry-btn {
   text-align: left;
-  border: 1px solid #e5eaf3;
+  border: 1px solid #e4eaf5;
   border-radius: 12px;
   background: #fff;
-  padding: 14px 16px;
+  padding: 16px;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-.quick-btn:hover {
+.entry-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 10px 22px rgba(32, 60, 100, 0.1);
 }
 
-.quick-btn-primary:hover {
-  border-color: #409eff;
+.entry-btn-archive {
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  border-color: #cfe0ff;
 }
 
-.quick-btn-green:hover {
-  border-color: #67c23a;
+.entry-btn-stat {
+  background: linear-gradient(180deg, #f7fcf9 0%, #ffffff 100%);
+  border-color: #cfe9d7;
 }
 
-.quick-btn-orange:hover {
-  border-color: #e6a23c;
+.entry-btn-employee {
+  background: linear-gradient(180deg, #fffaf4 0%, #ffffff 100%);
+  border-color: #f4dfc2;
 }
 
-.quick-title {
+.entry-title-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.entry-title {
   font-size: 15px;
   font-weight: 600;
   color: #303133;
 }
 
-.quick-desc {
+.entry-pill {
+  font-size: 12px;
+  line-height: 1;
+  color: #5f6b7a;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid #dde4ee;
+}
+
+.entry-desc {
   font-size: 13px;
-  color: #909399;
+  color: #5b6472;
   line-height: 1.5;
 }
 
-.tips-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.tip-item {
-  padding: 12px;
-  border-radius: 10px;
-  background: #f7f9fc;
-  border: 1px solid #edf1f7;
-}
-
-.tip-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #303133;
-  margin-bottom: 4px;
-}
-
-.tip-desc {
+.entry-action {
+  margin-top: 2px;
   font-size: 13px;
-  color: #606266;
-  line-height: 1.5;
+  color: #2f5ea8;
+  font-weight: 500;
 }
 
 @media (max-width: 992px) {
   .section-row {
     margin-top: 0;
+  }
+
+  .entry-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 993px) and (max-width: 1320px) {
+  .entry-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

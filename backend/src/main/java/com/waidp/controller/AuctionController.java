@@ -5,6 +5,8 @@ import com.waidp.common.Result;
 import com.waidp.dto.AuctionDTO;
 import com.waidp.entity.Auction;
 import com.waidp.service.AuctionService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -19,7 +21,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 拍卖控制器
+ * 鎷嶅崠鎺у埗鍣?
  */
 @RestController
 @RequestMapping("/api/auction")
@@ -29,21 +31,22 @@ public class AuctionController {
     private final AuctionService auctionService;
 
     /**
-     * 分页查询拍卖
+     * 鍒嗛〉鏌ヨ鎷嶅崠
      */
     @GetMapping
     public Result<PageResult<AuctionDTO>> list(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Boolean myAuctions,
+            @RequestParam(required = false) String confirmStatus,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer pageSize,
             HttpServletRequest request) {
 
         if (myAuctions != null && myAuctions) {
-            // 查询我的拍卖
+            // 鏌ヨ鎴戠殑鎷嶅崠
             Long userId = (Long) request.getAttribute("userId");
-            List<AuctionDTO> myAuctionDTOs = auctionService.getMyAuctionsDTO(userId, status);
+            List<AuctionDTO> myAuctionDTOs = auctionService.getMyAuctionsDTO(userId, status, confirmStatus);
 
             int total = myAuctionDTOs == null ? 0 : myAuctionDTOs.size();
             int fromIndex = Math.max(0, (page - 1) * pageSize);
@@ -62,7 +65,7 @@ public class AuctionController {
     }
 
     /**
-     * 根据ID获取拍卖
+     * 鏍规嵁ID鑾峰彇鎷嶅崠
      */
     @GetMapping("/{id}")
     public Result<AuctionDTO> getById(@PathVariable Long id) {
@@ -70,55 +73,65 @@ public class AuctionController {
     }
 
     /**
-     * 创建拍卖（资产专员）
+     * 鍒涘缓鎷嶅崠锛堣祫浜т笓鍛橈級
      */
     @PostMapping
     public Result<Void> create(@RequestBody Auction auction) {
         auctionService.createAuction(auction);
-        return Result.success("创建成功", null);
+        return Result.success("鍒涘缓鎴愬姛", null);
     }
 
     /**
-     * 删除拍卖（资产专员，只能删除未开始的拍卖）
+     * 鍒犻櫎鎷嶅崠锛堣祫浜т笓鍛橈紝鍙兘鍒犻櫎鏈紑濮嬬殑鎷嶅崠锛?
      */
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         auctionService.deleteAuction(id);
-        return Result.success("删除成功", null);
+        return Result.success("鍒犻櫎鎴愬姛", null);
     }
 
     /**
-     * 参与竞价
+     * 鍙備笌绔炰环
      */
     @PostMapping("/{id}/bid")
-    public Result<Void> bid(@PathVariable Long id, @RequestBody BidRequest request, HttpServletRequest httpRequest) {
+    public Result<Void> bid(@PathVariable Long id, @Valid @RequestBody BidRequest request, HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         auctionService.bid(id, userId, request.price());
-        return Result.success("竞价成功", null);
+        return Result.success("绔炰环鎴愬姛", null);
     }
 
     /**
-     * 一键出价
+     * 涓€閿嚭浠?
      */
     @PostMapping("/{id}/quick-bid")
     public Result<Void> quickBid(@PathVariable Long id, HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         auctionService.quickBid(id, userId);
-        return Result.success("竞价成功", null);
+        return Result.success("绔炰环鎴愬姛", null);
     }
 
     /**
-     * 确认成交（中标者）
+     * 鎾ゅ洖褰撳墠鏈€楂樺嚭浠凤紙缁撴潫鍓?12 灏忔椂澶栵級
+     */
+    @PostMapping("/{id}/withdraw")
+    public Result<Void> withdraw(@PathVariable Long id, HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        auctionService.withdrawHighestBid(id, userId);
+        return Result.success("鎾ゅ洖鎴愬姛", null);
+    }
+
+    /**
+     * 纭鎴愪氦锛堜腑鏍囪€咃級
      */
     @PostMapping("/{id}/confirm")
     public Result<Void> confirm(@PathVariable Long id, HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
         auctionService.confirmTransaction(id, userId);
-        return Result.success("确认成功", null);
+        return Result.success("纭鎴愬姛", null);
     }
 
     /**
-     * 获取拍卖的竞价记录
+     * 鑾峰彇鎷嶅崠鐨勭珵浠疯褰?
      */
     @GetMapping("/{id}/bids")
     public Result<List<BidView>> getBids(@PathVariable Long id) {
@@ -154,13 +167,13 @@ public class AuctionController {
 }
 
 /**
- * 竞价请求
+ * 绔炰环璇锋眰
  */
-record BidRequest(BigDecimal price) {
+record BidRequest(@NotNull(message = "鍑轰环閲戦涓嶈兘涓虹┖") BigDecimal price) {
 }
 
 /**
- * 竞价展示
+ * 绔炰环灞曠ず
  */
 record BidView(Long id, Long bidderId, String bidderName, BigDecimal price, LocalDateTime bidTime, Boolean isHighest) {
 }

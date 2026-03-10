@@ -1,11 +1,16 @@
 <template>
+  <!-- 登录页面容器 -->
   <div class="login-container">
+    <!-- 登录框主体 -->
     <div class="login-box">
+      <!-- 页面头部：显示平台名称 -->
       <div class="login-header">
         <h1>企业废旧资产内部拍卖与处置平台</h1>
         <p>Internal Auction & Disposal Platform</p>
       </div>
+      <!-- 标签页切换：登录/注册 -->
       <el-tabs v-model="activeTab" class="login-tabs">
+        <!-- 登录表单 -->
         <el-tab-pane label="登录" name="login">
           <el-form
             ref="loginFormRef"
@@ -14,6 +19,7 @@
             class="login-form"
             @keyup.enter="handleLogin"
           >
+            <!-- 工号输入 -->
             <el-form-item prop="username">
               <el-input
                 v-model="loginForm.username"
@@ -22,6 +28,7 @@
                 prefix-icon="User"
               />
             </el-form-item>
+            <!-- 密码输入 -->
             <el-form-item prop="password">
               <el-input
                 v-model="loginForm.password"
@@ -32,6 +39,7 @@
                 show-password
               />
             </el-form-item>
+            <!-- 登录按钮 -->
             <el-form-item>
               <el-button
                 type="primary"
@@ -45,6 +53,7 @@
             </el-form-item>
           </el-form>
         </el-tab-pane>
+        <!-- 注册表单 -->
         <el-tab-pane label="注册" name="register">
           <el-form
             ref="registerFormRef"
@@ -53,6 +62,7 @@
             class="login-form"
             @keyup.enter="handleRegister"
           >
+            <!-- 注册信息：工号、密码、确认密码 -->
             <el-form-item prop="username">
               <el-input
                 v-model="registerForm.username"
@@ -81,6 +91,7 @@
                 show-password
               />
             </el-form-item>
+            <!-- 个人信息：姓名、电话 -->
             <el-form-item prop="name">
               <el-input
                 v-model="registerForm.name"
@@ -97,6 +108,7 @@
                 prefix-icon="Phone"
               />
             </el-form-item>
+            <!-- 部门选择 -->
             <el-form-item prop="departmentId">
               <el-select
                 v-model="registerForm.departmentId"
@@ -131,46 +143,45 @@
 </template>
 
 <script setup>
+// 导入依赖
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { login as loginApi, register as registerApi, getDepartments } from '@/api'
 
+// 初始化路由和状态管理
 const router = useRouter()
 const userStore = useUserStore()
 
-const activeTab = ref('login')
-const loading = ref(false)
-const departments = ref([])
+// 响应式数据
+const activeTab = ref('login') // 当前激活的标签页
+const loading = ref(false) // 加载状态
+const departments = ref([]) // 部门列表
 
-const loginFormRef = ref()
-const loginForm = reactive({
-  username: '',
-  password: ''
+// 表单引用和数据
+const loginFormRef = ref() // 登录表单引用
+const loginForm = reactive({ username: '', password: '' }) // 登录表单数据
+
+const registerFormRef = ref() // 注册表单引用
+const registerForm = reactive({ // 注册表单数据
+  username: '', password: '', confirmPassword: '', name: '', phone: '', departmentId: ''
 })
 
-const registerFormRef = ref()
-const registerForm = reactive({
-  username: '',
-  password: '',
-  confirmPassword: '',
-  name: '',
-  phone: '',
-  departmentId: ''
-})
-
+// 登录表单验证规则
 const loginRules = {
   username: [{ required: true, message: '请输入工号', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
 }
 
+// 注册表单验证规则（包含密码一致性校验、手机号格式校验）
 const registerRules = {
   username: [{ required: true, message: '请输入工号', trigger: 'blur' }],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码长度至少6位', trigger: 'blur' }
   ],
+  // 自定义验证器：检查两次密码是否一致
   confirmPassword: [
     { required: true, message: '请确认密码', trigger: 'blur' },
     {
@@ -192,13 +203,14 @@ const registerRules = {
   departmentId: [{ required: true, message: '请选择部门', trigger: 'change' }]
 }
 
+// 加载部门列表（支持降级到模拟数据）
 const loadDepartments = async () => {
   try {
     const res = await getDepartments()
     departments.value = res.data
   } catch (error) {
     console.error('加载部门失败:', error)
-    // 如果API调用失败，使用模拟数据
+    // API 调用失败时使用模拟数据
     departments.value = [
       { id: 1, name: '技术部' },
       { id: 2, name: '财务部' },
@@ -211,75 +223,77 @@ const loadDepartments = async () => {
   }
 }
 
+// 处理登录函数
 const handleLogin = async () => {
+  // 表单验证
   const valid = await loginFormRef.value?.validate()
   if (!valid) return
 
   loading.value = true
   try {
-    const res = await loginApi(loginForm)
+    // 调用登录 API
+    const res = await loginApi({
+      username: String(loginForm.username || '').trim(),
+      password: String(loginForm.password || '')
+    })
     
-    // 直接使用 res，因为拦截器已经处理了 Result 包装
-    // res 包含的是后端 UserLoginResponse 的数据
+    // 保存 token 和用户信息
     if (res && res.data && res.data.token) {
       if (userStore) {
         userStore.setToken(res.data.token)
-        // 检查用户信息是否存在
         if (res.data.user) {
-          console.log('设置用户信息:', res.data.user)
           userStore.setUser(res.data.user)
-        } else {
-          console.log('用户信息为空')
         }
       }
       ElMessage.success('登录成功')
-      console.log('准备跳转到首页')
-      console.log('当前token:', userStore.token)
-      console.log('当前用户:', userStore.user)
-      try {
-        router.push('/')
-        console.log('跳转成功')
-      } catch (error) {
-        console.error('跳转失败:', error)
-      }
+      // 跳转到首页
+      router.push('/')
     } else {
-      console.error('登录响应数据结构异常:', res)
       ElMessage.error('用户名或密码错误')
     }
   } catch (error) {
     console.error('登录失败:', error)
-    ElMessage.error('用户名或密码错误')
+    const message = String(error?.message || '')
+    // 特殊处理账号被禁用的情况
+    if (message.includes('禁用')) {
+      ElMessage.error(message)
+    } else {
+      ElMessage.error('用户名或密码错误')
+    }
   } finally {
     loading.value = false
   }
 }
 
+// 处理注册函数
 const handleRegister = async () => {
+  // 表单验证
   const valid = await registerFormRef.value?.validate()
   if (!valid) return
 
   loading.value = true
   try {
+    // 调用注册 API
     await registerApi({
-      username: registerForm.username,
-      password: registerForm.password,
-      name: registerForm.name,
-      phone: registerForm.phone,
+      username: String(registerForm.username || '').trim(),
+      password: String(registerForm.password || ''),
+      name: String(registerForm.name || '').trim(),
+      phone: String(registerForm.phone || '').trim(),
       departmentId: registerForm.departmentId
     })
     ElMessage.success('注册成功，请登录')
+    // 切换到登录 Tab 并清空表单
     activeTab.value = 'login'
     registerFormRef.value?.resetFields()
   } catch (error) {
     console.error('注册失败:', error)
     ElMessage.error(error.message || '注册失败')
-    activeTab.value = 'login'
-    registerFormRef.value?.resetFields()
   } finally {
     loading.value = false
   }
 }
 
+// 组件挂载时加载部门列表
 onMounted(() => {
   loadDepartments()
 })

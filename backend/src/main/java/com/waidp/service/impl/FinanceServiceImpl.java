@@ -8,6 +8,7 @@ import com.waidp.mapper.AssetMapper;
 import com.waidp.mapper.TransactionMapper;
 import com.waidp.repository.*;
 import com.waidp.service.FinanceService;
+import com.waidp.util.AmountValidationUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -110,14 +111,23 @@ public class FinanceServiceImpl implements FinanceService {
             throw new RuntimeException("资产状态不允许审核，当前状态: " + assetStatus);
         }
 
+        AmountValidationUtils.requirePositiveAmount(startPrice, "起拍价");
+        BigDecimal finalReservePrice = reservePrice;
+        if (hasReservePrice) {
+            finalReservePrice = finalReservePrice != null ? finalReservePrice : asset.getCurrentValue();
+            AmountValidationUtils.requirePositiveAmount(finalReservePrice, "保留价");
+            if (finalReservePrice.compareTo(startPrice) < 0) {
+                throw new IllegalArgumentException("保留价不能低于起拍价");
+            }
+        }
+
         // 更新起拍价和保留价
         asset.setStartPrice(startPrice);
         asset.setHasReservePrice(hasReservePrice);
-        if (hasReservePrice && reservePrice != null) {
-            asset.setReservePrice(reservePrice);
-        } else if (hasReservePrice) {
-            // 如果开启保留价但未设置，默认为当前价值
-            asset.setReservePrice(asset.getCurrentValue());
+        if (hasReservePrice && finalReservePrice != null) {
+            asset.setReservePrice(finalReservePrice);
+        } else {
+            asset.setReservePrice(null);
         }
 
         asset.setStatus("待拍卖");
@@ -126,7 +136,7 @@ public class FinanceServiceImpl implements FinanceService {
 
         // 记录历史
         String content = "审核通过，起拍价：" + startPrice +
-                (hasReservePrice ? "，保留价：" + (reservePrice != null ? reservePrice : asset.getCurrentValue()) : "，未设置保留价");
+                (hasReservePrice ? "，保留价：" + finalReservePrice : "，未设置保留价");
         if (remark != null && !remark.trim().isEmpty()) {
             content += "，备注：" + remark.trim();
         }

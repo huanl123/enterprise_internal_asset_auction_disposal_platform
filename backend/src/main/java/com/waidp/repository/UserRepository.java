@@ -23,9 +23,22 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUsername(String username);
 
     /**
+     * 根据用户名查询用户（忽略首尾空格和大小写）
+     */
+    @Query(value = "SELECT * FROM `user` u WHERE LOWER(TRIM(u.username)) = LOWER(TRIM(:username)) ORDER BY u.id ASC LIMIT 1",
+           nativeQuery = true)
+    Optional<User> findByUsernameNormalized(@Param("username") String username);
+
+    /**
      * 检查用户名是否存在
      */
     boolean existsByUsername(String username);
+
+    /**
+     * 检查用户名是否存在（忽略首尾空格和大小写）
+     */
+    @Query("SELECT COUNT(u) > 0 FROM User u WHERE LOWER(TRIM(u.username)) = LOWER(TRIM(:username))")
+    boolean existsByUsernameNormalized(@Param("username") String username);
 
     /**
      * 根据部门ID查询用户

@@ -1,7 +1,10 @@
 <template>
+  <!-- 拍卖列表页面 -->
   <div class="auction-list">
     <el-card>
+      <!-- 查询表单 -->
       <el-form :inline="true" :model="queryForm" class="query-form">
+        <!-- 查询条件：拍卖名称、状态 -->
         <el-form-item label="拍卖名称">
           <el-input v-model="queryForm.name" placeholder="请输入拍卖名称" clearable />
         </el-form-item>
@@ -13,6 +16,7 @@
           </el-select>
         </el-form-item>
         <el-form-item>
+          <!-- 操作按钮：查询、重置、创建 -->
           <el-button type="primary" @click="handleQuery">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
           <el-button
@@ -25,12 +29,14 @@
         </el-form-item>
       </el-form>
 
+      <!-- 拍卖表格 -->
       <el-table
         v-loading="loading"
         :data="auctionList"
         stripe
         border
       >
+        <!-- 表格列：基本信息、价格、时间、状态 -->
         <el-table-column prop="name" label="拍卖名称" width="200" />
         <el-table-column label="资产信息" min-width="250">
           <template #default="{ row }">
@@ -57,6 +63,7 @@
             </el-tag>
           </template>
         </el-table-column>
+        <!-- 操作列：查看、竞拍（仅普通员工） -->
         <el-table-column label="操作" width="150" fixed="right" align="center">
           <template #default="{ row }">
             <el-button text type="primary" size="small" @click="handleView(row)">查看</el-button>
@@ -73,6 +80,7 @@
         </el-table-column>
       </el-table>
 
+      <!-- 分页组件 -->
       <el-pagination
         v-model="queryForm.page"
         :page-size="queryForm.pageSize"
@@ -88,24 +96,29 @@
 </template>
 
 <script setup>
+// 导入依赖
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getAuctions } from '@/api'
 
+// 初始化路由和状态管理
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
+// 响应式数据
 const loading = ref(false)
 const auctionList = ref([])
 const total = ref(0)
 
+// 分页大小持久化
 const PAGE_SIZE_KEY = 'auction_page_size'
 const getUserKey = () => userStore.user?.id || userStore.user?.username || userStore.user?.account || 'guest'
 const getPageSizeKey = () => `${PAGE_SIZE_KEY}_${getUserKey()}`
 const getSavedPageSize = () => Number(localStorage.getItem(getPageSizeKey())) || 10
 
+// 查询表单数据
 const queryForm = reactive({
   name: '',
   status: '',
@@ -113,8 +126,10 @@ const queryForm = reactive({
   pageSize: getSavedPageSize()
 })
 
+// 允许的状态列表
 const allowedStatusList = ['not_started', 'in_progress', 'ended', 'PENDING']
 
+// 应用路由参数中的状态筛选
 const applyRouteStatus = () => {
   const status = route.query.status
   if (typeof status === 'string' && allowedStatusList.includes(status)) {
@@ -123,6 +138,7 @@ const applyRouteStatus = () => {
   }
 }
 
+// 获取状态标签类型
 const getStatusType = (status) => {
   const statusMap = {
     not_started: 'info',
@@ -133,6 +149,7 @@ const getStatusType = (status) => {
   return statusMap[status] || 'info'
 }
 
+// 获取状态文本
 const getStatusText = (status) => {
   const statusMap = {
     not_started: '未开始',
@@ -143,6 +160,7 @@ const getStatusText = (status) => {
   return statusMap[status] || status
 }
 
+// 加载拍卖列表
 const loadAuctions = async () => {
   loading.value = true
   try {

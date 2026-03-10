@@ -39,12 +39,12 @@ public interface DisposalService {
     /**
      * 获取待处置交易单列表
      */
-    Page<TransactionDTO> getPendingTransactions(Pageable pageable);
+    Page<TransactionDTO> getPendingTransactions(Pageable pageable, Long currentUserId, String currentRole);
 
     /**
      * 获取已完成交易单列表
      */
-    Page<TransactionDTO> getCompletedTransactions(Pageable pageable);
+    Page<TransactionDTO> getCompletedTransactions(Pageable pageable, Long currentUserId, String currentRole);
 
     /**
      * 获取处置历史

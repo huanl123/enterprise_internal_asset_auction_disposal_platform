@@ -10,77 +10,87 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * 拍卖服务接口
+ * 鎷嶅崠鏈嶅姟鎺ュ彛
  */
 public interface AuctionService {
 
     /**
-     * 分页查询拍卖
+     * 鍒嗛〉鏌ヨ鎷嶅崠
      */
     Page<Auction> getAuctions(String name, String status, Pageable pageable);
 
     /**
-     * 分页查询拍卖 - 返回DTO，避免懒加载问题
+     * 鍒嗛〉鏌ヨ鎷嶅崠 - 杩斿洖DTO锛岄伩鍏嶆噿鍔犺浇闂
      */
     Page<AuctionDTO> getAuctionsDTO(String name, String status, Pageable pageable);
 
     /**
-     * 根据ID获取拍卖
+     * 鏍规嵁ID鑾峰彇鎷嶅崠
      */
     Auction getAuctionById(Long id);
 
     /**
-     * 根据ID获取拍卖 - 返回DTO，避免懒加载问题
+     * 鏍规嵁ID鑾峰彇鎷嶅崠 - 杩斿洖DTO锛岄伩鍏嶆噿鍔犺浇闂
      */
     AuctionDTO getAuctionDTOById(Long id);
 
     /**
-     * 创建拍卖活动
+     * 鍒涘缓鎷嶅崠娲诲姩
      */
     void createAuction(Auction auction);
 
     /**
-     * 删除拍卖
+     * 鍒犻櫎鎷嶅崠
      */
     void deleteAuction(Long auctionId);
 
     /**
-     * 参与竞价
+     * 鍙備笌绔炰环
      */
     void bid(Long auctionId, Long userId, BigDecimal price);
 
     /**
-     * 一键出价
+     * 涓€閿嚭浠?
      */
     void quickBid(Long auctionId, Long userId);
 
     /**
-     * 确认成交
+     * 鎾ゅ洖褰撳墠鏈€楂樺嚭浠凤紙缁撴潫鍓?12 灏忔椂澶栵級
+     */
+    void withdrawHighestBid(Long auctionId, Long userId);
+
+    /**
+     * 纭鎴愪氦
      */
     void confirmTransaction(Long auctionId, Long userId);
 
     /**
-     * 查询我的拍卖
+     * 鏌ヨ鎴戠殑鎷嶅崠
      */
     List<Auction> getMyAuctions(Long userId);
 
     /**
-     * 查询我的拍卖 - 返回DTO
+     * 鏌ヨ鎴戠殑鎷嶅崠 - 杩斿洖DTO
      */
-    List<AuctionDTO> getMyAuctionsDTO(Long userId, String status);
+    List<AuctionDTO> getMyAuctionsDTO(Long userId, String status, String confirmStatus);
 
     /**
-     * 获取拍卖的竞价记录
+     * 鑾峰彇鎷嶅崠鐨勭珵浠疯褰?
      */
     List<Bid> getBidsByAuctionId(Long auctionId);
 
     /**
-     * 自动检查和结束拍卖
+     * 鑷姩妫€鏌ュ拰缁撴潫鎷嶅崠
      */
     void checkAndEndAuctions();
 
     /**
-     * 检查并处理超时未确认的成交
+     * 妫€鏌ュ苟澶勭悊瓒呮椂鏈‘璁ょ殑鎴愪氦
      */
     void checkExpiredConfirmations();
+
+    /**
+     * 妫€鏌ュ苟澶勭悊付款超时（未确认收款则过期）
+     */
+    void checkExpiredPayments();
 }

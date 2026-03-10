@@ -2,10 +2,15 @@
   <div class="employee-statistics">
     <el-card>
       <template #header>
-        <span>员工竞拍记录</span>
+        <div class="card-header">
+          <span>{{ employeeRecordTitle }}</span>
+          <el-tooltip v-if="rangeText" :content="`统计范围：${rangeText}`" placement="top">
+            <el-tag type="info" effect="plain">时间点：{{ currentPointLabel }}</el-tag>
+          </el-tooltip>
+          <el-tag v-else type="info" effect="plain">时间点：{{ currentPointLabel }}</el-tag>
+        </div>
       </template>
 
-      <!-- 筛选条件 -->
       <el-form :inline="true" :model="queryForm" class="query-form">
         <el-form-item label="时间范围">
           <el-radio-group v-model="timeRange" @change="handleTimeRangeChange">
@@ -14,7 +19,24 @@
             <el-radio-button value="year">按年</el-radio-button>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="部门">
+
+        <el-form-item label="时间点">
+          <el-select
+            v-model="selectedPoint"
+            placeholder="请选择时间点"
+            style="width: 180px"
+            :disabled="pointOptions.length === 0"
+            @change="handlePointChange"
+          >
+            <el-option
+              v-for="item in pointOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="showDepartmentFilter" label="部门">
           <el-select v-model="queryForm.departmentId" placeholder="全部部门" clearable style="width: 150px">
             <el-option
               v-for="dept in departments"
@@ -38,7 +60,6 @@
         </el-form-item>
       </el-form>
 
-      <!-- 统计汇总 -->
       <el-row :gutter="20" class="summary-row">
         <el-col :xs="12" :md="6">
           <el-statistic title="参与人数" :value="summary.totalParticipants" />
@@ -54,7 +75,6 @@
         </el-col>
       </el-row>
 
-      <!-- 详细数据 -->
       <el-table
         v-loading="loading"
         :data="employeeList"
@@ -64,7 +84,6 @@
         <el-table-column type="index" label="序号" width="60" align="center" />
         <el-table-column prop="name" label="姓名" width="100" />
         <el-table-column prop="department" label="部门" width="120" />
-        <el-table-column prop="phone" label="联系方式" width="120" />
         <el-table-column prop="auctionCount" label="竞拍场次" width="100" align="right" />
         <el-table-column prop="winCount" label="中标次数" width="100" align="right" />
         <el-table-column prop="breachCount" label="违约次数" width="100" align="right">
@@ -73,13 +92,11 @@
             <span v-else>{{ row.breachCount }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="totalAmount" label="成交总额(元)" width="150" align="right">
-          <template #default="{ row }">¥{{ row.totalAmount?.toLocaleString() }}</template>
-        </el-table-column>
+        <el-table-column prop="dealCount" label="成交资产(件)" width="120" align="right" />
         <el-table-column prop="winRate" label="中标率" width="100" align="right">
           <template #default="{ row }">{{ (row.winRate * 100).toFixed(1) }}%</template>
         </el-table-column>
-        <el-table-column label="资产明细" width="100" align="center">
+        <el-table-column label="成交资产明细" width="100" align="center">
           <template #default="{ row }">
             <el-button text type="primary" size="small" @click="handleViewDetail(row)">
               查看
@@ -89,18 +106,17 @@
       </el-table>
 
       <el-pagination
-        v-model:current-page="queryForm.page"
-        v-model:page-size="queryForm.pageSize"
+        v-model="queryForm.page"
+        :page-size="queryForm.pageSize"
         :page-sizes="[10, 20, 50, 100]"
         :total="total"
         layout="total, sizes, prev, pager, next, jumper"
         class="pagination"
-        @size-change="handleQuery"
-        @current-change="handleQuery"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
       />
     </el-card>
 
-    <!-- 资产明细对话框 -->
     <el-dialog
       v-model="detailDialogVisible"
       title="成交资产明细"
@@ -113,11 +129,9 @@
           <template #default="{ row }">¥{{ row.finalPrice?.toLocaleString() }}</template>
         </el-table-column>
         <el-table-column prop="auctionTime" label="成交时间" width="180" />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 'completed' ? 'success' : 'danger'">
-              {{ row.status === 'completed' ? '已完成' : '已违约' }}
-            </el-tag>
+        <el-table-column label="状态" width="100">
+          <template #default>
+            <el-tag type="success">已成交</el-tag>
           </template>
         </el-table-column>
       </el-table>
@@ -126,23 +140,51 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { getDepartments, getEmployeeStatistics, getBidsSummary } from '@/api'
+import { ref, reactive, onMounted, computed } from 'vue'
+import dayjs from 'dayjs'
+import { getDepartments, getBidsSummary } from '@/api'
+import { useUserStore } from '@/stores/user'
 
 const loading = ref(false)
 const timeRange = ref('month')
+const selectedPoint = ref('')
+const pointOptions = ref([])
 const departments = ref([])
 const employeeList = ref([])
 const total = ref(0)
 const detailDialogVisible = ref(false)
 const currentEmployeeAssets = ref([])
+const userStore = useUserStore()
+const showDepartmentFilter = computed(() => userStore.hasAnyRole('系统管理员'))
+const scopedDepartmentName = computed(() => {
+  const directName = userStore.user?.departmentName
+  if (directName && String(directName).trim()) {
+    return String(directName).trim()
+  }
+  const deptId = userStore.user?.departmentId
+  if (deptId != null) {
+    const dept = departments.value.find(item => Number(item.id) === Number(deptId))
+    if (dept?.name) {
+      return dept.name
+    }
+  }
+  return '本部门'
+})
+const employeeRecordTitle = computed(() => {
+  return showDepartmentFilter.value ? '员工竞拍记录' : `员工竞拍记录 · ${scopedDepartmentName.value}`
+})
+
+const PAGE_SIZE_KEY = 'employee_statistics_page_size'
+const getUserKey = () => userStore.user?.id || userStore.user?.username || userStore.user?.account || 'guest'
+const getPageSizeKey = () => `${PAGE_SIZE_KEY}_${getUserKey()}`
+const getSavedPageSize = () => Number(localStorage.getItem(getPageSizeKey())) || 10
 
 const queryForm = reactive({
   timeRange: 'month',
   departmentId: '',
   name: '',
   page: 1,
-  pageSize: 10
+  pageSize: getSavedPageSize()
 })
 
 const summary = reactive({
@@ -164,6 +206,83 @@ const loadDepartments = async () => {
 const handleTimeRangeChange = () => {
   queryForm.timeRange = timeRange.value
   queryForm.page = 1
+  refreshPointOptions()
+  handleQuery()
+}
+
+const buildPointOptions = (rangeType) => {
+  const today = dayjs()
+  if (rangeType === 'year') {
+    return Array.from({ length: 5 }).map((_, index) => {
+      const date = today.subtract(index, 'year')
+      const year = date.format('YYYY')
+      const start = `${year}-01-01`
+      const end = date.isSame(today, 'year') ? today.format('YYYY-MM-DD') : `${year}-12-31`
+      return { value: year, label: year, startDate: start, endDate: end }
+    })
+  }
+
+  if (rangeType === 'quarter') {
+    return Array.from({ length: 8 }).map((_, index) => {
+      const date = today.subtract(index * 3, 'month')
+      const year = date.year()
+      const month = date.month() + 1
+      const quarter = Math.floor((month - 1) / 3) + 1
+      const startMonth = (quarter - 1) * 3 + 1
+      const start = dayjs(`${year}-${String(startMonth).padStart(2, '0')}-01`)
+      const end = start.add(2, 'month').endOf('month')
+
+      const currentQuarter = Math.floor((today.month() + 1 - 1) / 3) + 1
+      const isCurrentQuarter = year === today.year() && quarter === currentQuarter
+
+      return {
+        value: `${year}-Q${quarter}`,
+        label: `${year}-Q${quarter}`,
+        startDate: start.format('YYYY-MM-DD'),
+        endDate: isCurrentQuarter ? today.format('YYYY-MM-DD') : end.format('YYYY-MM-DD')
+      }
+    })
+  }
+
+  // month
+  return Array.from({ length: 12 }).map((_, index) => {
+    const date = today.subtract(index, 'month')
+    const key = date.format('YYYY-MM')
+    const start = date.startOf('month')
+    const end = date.endOf('month')
+    const isCurrentMonth = date.isSame(today, 'month')
+    return {
+      value: key,
+      label: key,
+      startDate: start.format('YYYY-MM-DD'),
+      endDate: isCurrentMonth ? today.format('YYYY-MM-DD') : end.format('YYYY-MM-DD')
+    }
+  })
+}
+
+const refreshPointOptions = () => {
+  pointOptions.value = buildPointOptions(timeRange.value)
+  const hasSelected = pointOptions.value.some(item => item.value === selectedPoint.value)
+  if (!hasSelected) {
+    selectedPoint.value = pointOptions.value[0]?.value || ''
+  }
+}
+
+const selectedPointMeta = computed(() => {
+  return pointOptions.value.find(item => item.value === selectedPoint.value) || null
+})
+
+const currentPointLabel = computed(() => {
+  return selectedPointMeta.value?.label || selectedPoint.value || '当前'
+})
+
+const rangeText = computed(() => {
+  if (!selectedPointMeta.value) return ''
+  return `${selectedPointMeta.value.startDate} ~ ${selectedPointMeta.value.endDate}`
+})
+
+const handlePointChange = () => {
+  queryForm.page = 1
   handleQuery()
 }
 
@@ -171,11 +290,10 @@ const buildEmployeeList = (list) => list.map(item => ({
   userId: item.userId,
   name: item.name || item.username || '',
   department: item.department || '',
-  phone: item.phone || '-',
   auctionCount: item.auctionCount || 0,
   winCount: item.winCount || 0,
   breachCount: item.defaultCount || 0,
-  totalAmount: item.totalAmount || 0,
+  dealCount: Array.isArray(item.assets) ? item.assets.length : 0,
   winRate: item.auctionCount ? (item.winCount || 0) / item.auctionCount : 0,
   assets: item.assets || []
 }))
@@ -187,12 +305,14 @@ const computeSummary = (list) => ({
   totalBreaches: list.reduce((sum, item) => sum + (item.breachCount || 0), 0)
 })
 
-const handleQuery = async () => {
+const loadEmployeeStatistics = async () => {
   loading.value = true
   try {
     // 使用正确的参数结构，后端接口需要 period 参数而不是 timeRange
     const params = {
       period: queryForm.timeRange,
+      startDate: selectedPointMeta.value?.startDate,
+      endDate: selectedPointMeta.value?.endDate,
       departmentId: queryForm.departmentId,
       name: queryForm.name,
       page: queryForm.page,
@@ -231,6 +351,23 @@ const handleQuery = async () => {
   }
 }
 
+const handleQuery = () => {
+  queryForm.page = 1
+  loadEmployeeStatistics()
+}
+
+const handleSizeChange = (pageSize) => {
+  queryForm.pageSize = pageSize
+  queryForm.page = 1
+  localStorage.setItem(getPageSizeKey(), String(pageSize))
+  loadEmployeeStatistics()
+}
+
+const handleCurrentChange = (page) => {
+  queryForm.page = page
+  loadEmployeeStatistics()
+}
+
 const handleExport = () => {
   // TODO: 实现导出功能
   console.log('导出数据')
@@ -240,11 +377,10 @@ const handleViewDetail = async (row) => {
   try {
     const assets = Array.isArray(row.assets) ? row.assets : []
     currentEmployeeAssets.value = assets.map(item => ({
-      assetCode: item.assetId ?? '-',
+      assetCode: item.assetId == null ? '-' : item.assetId,
       assetName: item.assetName || '-',
       finalPrice: item.finalPrice || 0,
-      auctionTime: item.transactionDate || '-',
-      status: 'completed'
+      auctionTime: item.transactionDate || '-'
     }))
     detailDialogVisible.value = true
   } catch (error) {
@@ -254,13 +390,21 @@ const handleViewDetail = async (row) => {
 
 onMounted(() => {
   loadDepartments()
-  handleQuery()
+  refreshPointOptions()
+  loadEmployeeStatistics()
 })
 </script>
 
 <style scoped>
 .employee-statistics {
   padding: 20px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .query-form {
@@ -280,3 +424,4 @@ onMounted(() => {
   justify-content: flex-end;
 }
 </style>
+

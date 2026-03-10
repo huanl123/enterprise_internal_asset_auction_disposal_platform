@@ -120,7 +120,7 @@ public class DisposalServiceImpl implements DisposalService {
 
     @Override
     public Page<Asset> getDisposedAssets(String code, String name, Pageable pageable, Long currentUserId, String currentRole) {
-        ArchiveAccessScope accessScope = resolveArchiveAccessScope(currentRole);
+        ArchiveAccessScope accessScope = resolveArchiveAccessScope(currentUserId, currentRole);
         Long currentDepartmentId = resolveCurrentDepartmentId(currentUserId);
         Specification<Asset> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -135,16 +135,7 @@ public class DisposalServiceImpl implements DisposalService {
                 if (currentDepartmentId == null) {
                     predicates.add(cb.disjunction());
                 } else {
-                    var subquery = query.subquery(Long.class);
-                    var txRoot = subquery.from(Transaction.class);
-                    var winnerJoin = txRoot.join("winner");
-                    subquery.select(txRoot.get("assetId"));
-                    subquery.where(
-                            cb.equal(txRoot.get("assetId"), root.get("id")),
-                            cb.equal(cb.lower(txRoot.get("disposalStatus")), "completed"),
-                            cb.equal(winnerJoin.get("departmentId"), currentDepartmentId)
-                    );
-                    predicates.add(cb.exists(subquery));
+                    predicates.add(cb.equal(root.get("departmentId"), currentDepartmentId));
                 }
             } else if (accessScope == ArchiveAccessScope.SELF_RELATED) {
                 if (currentUserId == null) {
@@ -170,7 +161,7 @@ public class DisposalServiceImpl implements DisposalService {
 
     @Override
     public AssetDisposalDetail getDisposedAssetDetail(Long assetId, Long currentUserId, String currentRole) {
-        ArchiveAccessScope accessScope = resolveArchiveAccessScope(currentRole);
+        ArchiveAccessScope accessScope = resolveArchiveAccessScope(currentUserId, currentRole);
         Long currentDepartmentId = resolveCurrentDepartmentId(currentUserId);
         Asset asset = assetRepository.findById(assetId)
                 .orElseThrow(() -> new RuntimeException("资产不存在"));
@@ -184,8 +175,8 @@ public class DisposalServiceImpl implements DisposalService {
                 .orElseThrow(() -> new RuntimeException("未找到交易单"));
 
         if (accessScope == ArchiveAccessScope.DEPARTMENT_RELATED) {
-            Long winnerDepartmentId = resolveCurrentDepartmentId(transaction.getWinnerId());
-            if (currentDepartmentId == null || winnerDepartmentId == null || !winnerDepartmentId.equals(currentDepartmentId)) {
+            Long assetDepartmentId = asset.getDepartmentId();
+            if (currentDepartmentId == null || assetDepartmentId == null || !assetDepartmentId.equals(currentDepartmentId)) {
                 throw new RuntimeException("无权限查看该资产处置档案");
             }
         } else if (accessScope == ArchiveAccessScope.SELF_RELATED) {
@@ -262,6 +253,17 @@ public class DisposalServiceImpl implements DisposalService {
                 .orElse(null);
     }
 
+    private ArchiveAccessScope resolveArchiveAccessScope(Long currentUserId, String fallbackRole) {
+        String roleFromDb = null;
+        if (currentUserId != null) {
+            roleFromDb = userRepository.findById(currentUserId)
+                    .map(User::getRole)
+                    .orElse(null);
+        }
+        String effectiveRole = StringUtils.hasText(roleFromDb) ? roleFromDb : fallbackRole;
+        return resolveArchiveAccessScope(effectiveRole);
+    }
+
     private ArchiveAccessScope resolveArchiveAccessScope(String role) {
         if (role == null || role.trim().isEmpty()) {
             return ArchiveAccessScope.DENY_ALL;
@@ -311,17 +313,38 @@ public class DisposalServiceImpl implements DisposalService {
     }
 
     @Override
-    public Page<TransactionDTO> getPendingTransactions(Pageable pageable) {
-        Specification<Transaction> spec = (root, query, cb) -> cb.and(
-                cb.or(
-                        cb.equal(root.get("paymentStatus"), "approved"),
-                        cb.equal(root.get("paymentStatus"), "APPROVED")
-                ),
-                cb.or(
-                        cb.equal(root.get("disposalStatus"), "pending"),
-                        cb.equal(root.get("disposalStatus"), "PENDING")
-                )
-        );
+    public Page<TransactionDTO> getPendingTransactions(Pageable pageable, Long currentUserId, String currentRole) {
+        ArchiveAccessScope accessScope = resolveArchiveAccessScope(currentUserId, currentRole);
+        Long currentDepartmentId = resolveCurrentDepartmentId(currentUserId);
+        Specification<Transaction> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.or(
+                    cb.equal(root.get("paymentStatus"), "approved"),
+                    cb.equal(root.get("paymentStatus"), "APPROVED")
+            ));
+            predicates.add(cb.or(
+                    cb.equal(root.get("disposalStatus"), "pending"),
+                    cb.equal(root.get("disposalStatus"), "PENDING")
+            ));
+
+            if (accessScope == ArchiveAccessScope.DEPARTMENT_RELATED) {
+                if (currentDepartmentId == null) {
+                    predicates.add(cb.disjunction());
+                } else {
+                    var assetJoin = root.join("asset");
+                    predicates.add(cb.equal(assetJoin.get("departmentId"), currentDepartmentId));
+                }
+            } else if (accessScope == ArchiveAccessScope.SELF_RELATED) {
+                if (currentUserId == null) {
+                    predicates.add(cb.disjunction());
+                } else {
+                    predicates.add(cb.equal(root.get("winnerId"), currentUserId));
+                }
+            } else if (accessScope == ArchiveAccessScope.DENY_ALL) {
+                predicates.add(cb.disjunction());
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
 
         Page<Transaction> transactions = transactionRepository.findAll(spec, pageable);
         if (transactions.getContent() == null || transactions.getContent().isEmpty()) {
@@ -354,17 +377,38 @@ public class DisposalServiceImpl implements DisposalService {
     }
 
     @Override
-    public Page<TransactionDTO> getCompletedTransactions(Pageable pageable) {
-        Specification<Transaction> spec = (root, query, cb) -> cb.and(
-                cb.or(
-                        cb.equal(root.get("paymentStatus"), "approved"),
-                        cb.equal(root.get("paymentStatus"), "APPROVED")
-                ),
-                cb.or(
-                        cb.equal(root.get("disposalStatus"), "completed"),
-                        cb.equal(root.get("disposalStatus"), "COMPLETED")
-                )
-        );
+    public Page<TransactionDTO> getCompletedTransactions(Pageable pageable, Long currentUserId, String currentRole) {
+        ArchiveAccessScope accessScope = resolveArchiveAccessScope(currentUserId, currentRole);
+        Long currentDepartmentId = resolveCurrentDepartmentId(currentUserId);
+        Specification<Transaction> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.or(
+                    cb.equal(root.get("paymentStatus"), "approved"),
+                    cb.equal(root.get("paymentStatus"), "APPROVED")
+            ));
+            predicates.add(cb.or(
+                    cb.equal(root.get("disposalStatus"), "completed"),
+                    cb.equal(root.get("disposalStatus"), "COMPLETED")
+            ));
+
+            if (accessScope == ArchiveAccessScope.DEPARTMENT_RELATED) {
+                if (currentDepartmentId == null) {
+                    predicates.add(cb.disjunction());
+                } else {
+                    var assetJoin = root.join("asset");
+                    predicates.add(cb.equal(assetJoin.get("departmentId"), currentDepartmentId));
+                }
+            } else if (accessScope == ArchiveAccessScope.SELF_RELATED) {
+                if (currentUserId == null) {
+                    predicates.add(cb.disjunction());
+                } else {
+                    predicates.add(cb.equal(root.get("winnerId"), currentUserId));
+                }
+            } else if (accessScope == ArchiveAccessScope.DENY_ALL) {
+                predicates.add(cb.disjunction());
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
 
         Page<Transaction> transactions = transactionRepository.findAll(spec, pageable);
         if (transactions.getContent() == null || transactions.getContent().isEmpty()) {

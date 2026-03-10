@@ -63,6 +63,7 @@
             <el-table-column prop="result" label="结果" width="100" align="center">
               <template #default="{ row }">
                 <el-tag v-if="row.result === 'won'" type="success">中标</el-tag>
+                <el-tag v-else-if="row.result === 'failed'" type="warning">流拍</el-tag>
                 <el-tag v-else-if="row.result === 'lost'" type="info">未中标</el-tag>
                 <el-tag v-else type="warning">已结束</el-tag>
               </template>
@@ -155,6 +156,7 @@
             <el-table-column prop="result" label="结果" width="100" align="center">
               <template #default="{ row }">
                 <el-tag v-if="row.result === 'won'" type="success">中标</el-tag>
+                <el-tag v-else-if="row.result === 'failed'" type="warning">流拍</el-tag>
                 <el-tag v-else-if="row.result === 'lost'" type="info">未中标</el-tag>
                 <el-tag v-else type="warning">进行中</el-tag>
               </template>
@@ -206,27 +208,16 @@ const queryForm = reactive({
   pageSize: getSavedPageSize()
 })
 
-const applyClientFilters = (list) => {
-  let result = Array.isArray(list) ? list.slice() : []
-  if (confirmStatusFilter.value) {
-    result = result.filter(item =>
-      String(item.confirmStatus || '').trim().toLowerCase() === confirmStatusFilter.value
-    )
-  }
-  return result
-}
-
 const loadMyAuctions = async () => {
   loading.value = true
   try {
     const res = await getAuctions({
       ...queryForm,
-      myAuctions: true
+      myAuctions: true,
+      confirmStatus: confirmStatusFilter.value || undefined
     })
-    const list = res.data.list || []
-    const filtered = applyClientFilters(list)
-    auctionList.value = filtered
-    total.value = filtered.length
+    auctionList.value = res.data?.list || []
+    total.value = Number(res.data?.total ?? auctionList.value.length) || 0
   } catch (error) {
     console.error('加载我的竞拍失败:', error)
   } finally {

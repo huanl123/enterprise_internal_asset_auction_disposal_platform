@@ -10,6 +10,7 @@ import com.waidp.entity.Transaction;
 import com.waidp.dto.TransactionDTO;
 import com.waidp.service.FinanceService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -58,7 +59,7 @@ public class FinanceController {
      */
     @PostMapping("/assets/{id}/approve")
     @PreAuthorize("hasAnyRole('FINANCE_SPECIALIST','finance_specialist','财务专员','ADMIN','admin','SYSTEM_ADMIN','system_admin','系统管理员')")
-    public Result<Void> approveAsset(@PathVariable Long id, @RequestBody ApproveRequest request, HttpServletRequest httpRequest) {
+    public Result<Void> approveAsset(@PathVariable Long id, @Valid @RequestBody ApproveRequest request, HttpServletRequest httpRequest) {
         Long operatorId = (Long) httpRequest.getAttribute("userId");
         financeService.approveAsset(
                 id,

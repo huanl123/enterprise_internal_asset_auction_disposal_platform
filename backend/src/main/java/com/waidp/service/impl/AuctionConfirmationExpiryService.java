@@ -45,6 +45,20 @@ public class AuctionConfirmationExpiryService {
 
         LocalDateTime now = LocalDateTime.now();
         tx.setConfirmStatus("expired");
+        if (tx.getPaymentStatus() != null) {
+            String paymentStatus = tx.getPaymentStatus().trim().toLowerCase(Locale.ROOT);
+            if ("pending".equals(paymentStatus)) {
+                tx.setPaymentStatus("expired");
+            }
+        } else {
+            tx.setPaymentStatus("expired");
+        }
+        if (tx.getDisposalStatus() != null) {
+            String disposalStatus = tx.getDisposalStatus().trim().toLowerCase(Locale.ROOT);
+            if ("pending".equals(disposalStatus)) {
+                tx.setDisposalStatus("cancelled");
+            }
+        }
         tx.setUpdateTime(now);
         transactionRepository.save(tx);
 

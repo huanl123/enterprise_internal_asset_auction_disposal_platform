@@ -1,9 +1,17 @@
 package com.waidp.service.impl;
 
 import com.waidp.dto.AuctionDTO;
-import com.waidp.entity.*;
+import com.waidp.entity.Asset;
+import com.waidp.entity.Auction;
+import com.waidp.entity.Bid;
+import com.waidp.entity.Transaction;
+import com.waidp.entity.User;
 import com.waidp.mapper.AuctionMapper;
-import com.waidp.repository.*;
+import com.waidp.repository.AssetRepository;
+import com.waidp.repository.AuctionRepository;
+import com.waidp.repository.BidRepository;
+import com.waidp.repository.TransactionRepository;
+import com.waidp.repository.UserRepository;
 import com.waidp.service.AssetHistoryService;
 import com.waidp.service.AuctionService;
 import lombok.RequiredArgsConstructor;
@@ -15,20 +23,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- * 拍卖服务实现
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuctionServiceImpl implements AuctionService {
+
+    private static final long MIN_AUCTION_SECONDS = 5 * 60;
 
     private final AuctionRepository auctionRepository;
     private final AssetRepository assetRepository;
@@ -36,6 +45,8 @@ public class AuctionServiceImpl implements AuctionService {
     private final BidRepository bidRepository;
     private final TransactionRepository transactionRepository;
     private final AssetHistoryService assetHistoryService;
+    private final AuctionConfirmationExpiryService auctionConfirmationExpiryService;
+    private final AuctionPaymentExpiryService auctionPaymentExpiryService;
 
     @Override
     public Page<Auction> getAuctions(String name, String status, Pageable pageable) {
@@ -46,14 +57,10 @@ public class AuctionServiceImpl implements AuctionService {
     public Page<AuctionDTO> getAuctionsDTO(String name, String status, Pageable pageable) {
         checkAndEndAuctions();
         Page<Auction> auctionPage = auctionRepository.searchAuctions(name, status, pageable);
-        
-        // 转换为DTO列表
-        List<AuctionDTO> auctionDTOs = auctionPage.getContent().stream()
+        List<AuctionDTO> dtoList = auctionPage.getContent().stream()
                 .map(AuctionMapper::toDTO)
                 .collect(Collectors.toList());
-        
-        // 创建新的Page对象
-        return new PageImpl<>(auctionDTOs, pageable, auctionPage.getTotalElements());
+        return new PageImpl<>(dtoList, pageable, auctionPage.getTotalElements());
     }
 
     @Override
@@ -71,18 +78,37 @@ public class AuctionServiceImpl implements AuctionService {
     @Override
     @Transactional
     public void createAuction(Auction auction) {
+        if (auction == null) {
+            throw new IllegalArgumentException("拍卖信息不能为空");
+        }
+        if (auction.getAssetId() == null) {
+            throw new IllegalArgumentException("请选择待拍卖资产");
+        }
+        if (auction.getName() == null || auction.getName().trim().isEmpty()) {
+            throw new IllegalArgumentException("拍卖名称不能为空");
+        }
+        if (auction.getStartTime() == null || auction.getEndTime() == null) {
+            throw new IllegalArgumentException("拍卖开始时间和结束时间不能为空");
+        }
+        if (!auction.getEndTime().isAfter(auction.getStartTime())) {
+            throw new IllegalArgumentException("拍卖结束时间必须晚于开始时间");
+        }
+        if (Duration.between(auction.getStartTime(), auction.getEndTime()).getSeconds() < MIN_AUCTION_SECONDS) {
+            throw new IllegalArgumentException("拍卖时长不能少于5分钟");
+        }
+        requirePositiveAmount(auction.getIncrementAmount(), "加价幅度");
+
         Asset asset = assetRepository.findById(auction.getAssetId())
                 .orElseThrow(() -> new RuntimeException("资产不存在"));
+        requirePositiveAmount(asset.getStartPrice(), "起拍价");
 
-        // 检查资产状态是否允许创建拍卖（"待拍卖"状态）
         if (!"待拍卖".equals(asset.getStatus())) {
             throw new RuntimeException("资产状态不允许创建拍卖，当前状态：" + asset.getStatus());
         }
 
-        // 检查是否已经存在该资产的拍卖
         List<Auction> existingAuctions = auctionRepository.findByAssetId(asset.getId());
-        for (Auction existingAuction : existingAuctions) {
-            if (!"ended".equals(existingAuction.getStatus())) {
+        for (Auction existing : existingAuctions) {
+            if (!"ended".equals(existing.getStatus())) {
                 throw new RuntimeException("该资产已存在未结束的拍卖");
             }
         }
@@ -90,86 +116,36 @@ public class AuctionServiceImpl implements AuctionService {
         auction.setAsset(asset);
         auction.setStartPrice(asset.getStartPrice());
         auction.setCurrentPrice(asset.getStartPrice());
-        // 统一状态值：not_started / in_progress / ended
+
+        if (Boolean.TRUE.equals(auction.getHasReservePrice())) {
+            BigDecimal reserve = auction.getReservePrice();
+            if (reserve == null) {
+                reserve = asset.getReservePrice();
+            }
+            if (reserve == null) {
+                reserve = asset.getCurrentValue();
+            }
+            requirePositiveAmount(reserve, "保留价");
+            if (reserve.compareTo(asset.getStartPrice()) < 0) {
+                throw new IllegalArgumentException("保留价不能低于起拍价");
+            }
+            auction.setReservePrice(reserve);
+            auction.setHasReservePrice(true);
+        } else {
+            auction.setReservePrice(null);
+            auction.setHasReservePrice(false);
+        }
+
         auction.setStatus("not_started");
         auction.setBidCount(0);
-        auction.setCreateTime(LocalDateTime.now());
-        auction.setUpdateTime(LocalDateTime.now());
-
-        auctionRepository.save(auction);
-
-        // 更新资产状态
-        asset.setStatus("拍卖中");
-        assetRepository.save(asset);
-    }
-
-    @Override
-    @Transactional
-    public void bid(Long auctionId, Long userId, BigDecimal price) {
-        Auction auction = auctionRepository.findById(auctionId)
-                .orElseThrow(() -> new RuntimeException("拍卖不存在"));
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("用户不存在"));
-
-        // 检查用户状态
-        if (!user.getStatus()) {
-            throw new RuntimeException("账号已被禁用，无法参与竞拍");
-        }
-
-        // 检查竞拍资格（违约限制）
         LocalDateTime now = LocalDateTime.now();
-        if (user.getBidBanUntil() != null && user.getBidBanUntil().isAfter(now)) {
-            throw new RuntimeException("您已被限制竞拍，解禁时间：" + user.getBidBanUntil());
-        }
-
-        // 检查拍卖状态
-        if (!"in_progress".equals(auction.getStatus())) {
-            throw new RuntimeException("拍卖未进行中");
-        }
-
-        // 检查参与部门范围
-        if (!isDepartmentAllowed(auction, user)) {
-            throw new RuntimeException("当前拍卖不允许您所在部门参与");
-        }
-
-
-
-        // 检查出价是否满足加价幅度
-        BigDecimal minBid = auction.getCurrentPrice().add(auction.getIncrementAmount());
-        if (price.compareTo(minBid) < 0) {
-            throw new RuntimeException("出价必须大于当前价 + 加价幅度");
-        }
-
-
-        // 检查是否在最后5分钟，如果是则延长5分钟
-        if (auction.getEndTime().minusMinutes(5).isBefore(LocalDateTime.now())) {
-            auction.setEndTime(auction.getEndTime().plusMinutes(5));
-        }
-
-        // 更新拍卖信息
-        auction.setCurrentPrice(price);
-        auction.setBidCount(auction.getBidCount() + 1);
-        // Auction 实体中 winnerId 字段是 insertable=false，因此必须设置关联对象才能写入 winner_id
-        auction.setWinner(user);
-        auction.setFinalPrice(price);
-        auction.setUpdateTime(LocalDateTime.now());
+        auction.setCreateTime(now);
+        auction.setUpdateTime(now);
         auctionRepository.save(auction);
 
-        // 清除旧的最高出价标记，保证只有一个“当前最高”
-        bidRepository.clearHighestByAuctionId(auctionId);
-
-        // 创建竞价记录
-        LocalDateTime bidTime = LocalDateTime.now();
-        Bid bid = new Bid();
-        // Bid 实体中 auctionId / bidderId 字段是 insertable=false，因此必须设置关联对象，JPA 才能写入 auction_id / bidder_id
-        bid.setAuction(auction);
-        bid.setBidder(user);
-        bid.setPrice(price);
-        bid.setIsHighest(true);
-        bid.setBidTime(bidTime);
-        bid.setCreateTime(bidTime);
-        bidRepository.save(bid);
+        asset.setStatus("拍卖中");
+        asset.setUpdateTime(now);
+        assetRepository.save(asset);
     }
 
     @Override
@@ -178,17 +154,74 @@ public class AuctionServiceImpl implements AuctionService {
         Auction auction = auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new RuntimeException("拍卖不存在"));
 
-        // 只能删除未开始的拍卖
         if (!"not_started".equals(auction.getStatus())) {
             throw new RuntimeException("只能删除未开始的拍卖");
         }
 
-        // 恢复资产状态
         Asset asset = auction.getAsset();
-        asset.setStatus("待拍卖");
-        assetRepository.save(asset);
-
+        if (asset != null) {
+            asset.setStatus("待拍卖");
+            asset.setUpdateTime(LocalDateTime.now());
+            assetRepository.save(asset);
+        }
         auctionRepository.deleteById(auctionId);
+    }
+
+    @Override
+    @Transactional
+    public void bid(Long auctionId, Long userId, BigDecimal price) {
+        Auction auction = auctionRepository.findById(auctionId)
+                .orElseThrow(() -> new RuntimeException("拍卖不存在"));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("用户不存在"));
+
+        if (!Boolean.TRUE.equals(user.getStatus())) {
+            throw new RuntimeException("账号已被禁用，无法参与竞拍");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (user.getBidBanUntil() != null && user.getBidBanUntil().isAfter(now)) {
+            throw new RuntimeException("您已被限制竞拍，解禁时间：" + user.getBidBanUntil());
+        }
+
+        if (!"in_progress".equals(auction.getStatus())) {
+            throw new RuntimeException("拍卖未进行中");
+        }
+
+        if (!isDepartmentAllowed(auction, user)) {
+            throw new RuntimeException("当前拍卖不允许您所在部门参与");
+        }
+
+        requirePositiveAmount(price, "出价金额");
+        requirePositiveAmount(auction.getIncrementAmount(), "加价幅度");
+        requirePositiveAmount(auction.getCurrentPrice(), "当前价格");
+
+        BigDecimal minBid = auction.getCurrentPrice().add(auction.getIncrementAmount());
+        if (price.compareTo(minBid) < 0) {
+            throw new RuntimeException("出价必须大于等于：" + minBid);
+        }
+
+        if (auction.getEndTime() != null && auction.getEndTime().minusMinutes(5).isBefore(now)) {
+            auction.setEndTime(auction.getEndTime().plusMinutes(5));
+        }
+
+        auction.setCurrentPrice(price);
+        auction.setBidCount((auction.getBidCount() == null ? 0 : auction.getBidCount()) + 1);
+        auction.setWinner(user);
+        auction.setFinalPrice(price);
+        auction.setUpdateTime(now);
+        auctionRepository.save(auction);
+
+        bidRepository.clearHighestByAuctionId(auctionId);
+
+        Bid bid = new Bid();
+        bid.setAuction(auction);
+        bid.setBidder(user);
+        bid.setPrice(price);
+        bid.setIsHighest(true);
+        bid.setBidTime(now);
+        bid.setCreateTime(now);
+        bidRepository.save(bid);
     }
 
     @Override
@@ -196,79 +229,112 @@ public class AuctionServiceImpl implements AuctionService {
     public void quickBid(Long auctionId, Long userId) {
         Auction auction = auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new RuntimeException("拍卖不存在"));
-
-        // 按加价幅度自动出价
-        BigDecimal quickBidPrice = auction.getCurrentPrice().add(auction.getIncrementAmount());
-        bid(auctionId, userId, quickBidPrice);
-    }
-
-    @Override
-    public List<Bid> getBidsByAuctionId(Long auctionId) {
-        return bidRepository.findByAuctionIdOrderByBidTimeDesc(auctionId);
+        if (auction.getCurrentPrice() == null || auction.getIncrementAmount() == null) {
+            throw new RuntimeException("拍卖价格配置异常");
+        }
+        bid(auctionId, userId, auction.getCurrentPrice().add(auction.getIncrementAmount()));
     }
 
     @Override
     @Transactional
+    public void withdrawHighestBid(Long auctionId, Long userId) {
+        Auction auction = auctionRepository.findById(auctionId)
+                .orElseThrow(() -> new RuntimeException("拍卖不存在"));
+
+        if (!"in_progress".equals(auction.getStatus())) {
+            throw new RuntimeException("拍卖未进行中");
+        }
+        if (auction.getEndTime() == null) {
+            throw new RuntimeException("拍卖结束时间异常");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (!now.isBefore(auction.getEndTime().minusHours(12))) {
+            throw new RuntimeException("拍卖结束前12小时内不可撤价");
+        }
+
+        Bid highest = bidRepository.findFirstByAuctionIdAndIsHighestTrue(auctionId);
+        if (highest == null || highest.getId() == null) {
+            throw new RuntimeException("当前没有可撤销的最高出价");
+        }
+        if (highest.getBidderId() == null || !highest.getBidderId().equals(userId)) {
+            throw new RuntimeException("仅当前最高出价者可撤价");
+        }
+
+        bidRepository.deleteById(highest.getId());
+
+        bidRepository.clearHighestByAuctionId(auctionId);
+        Bid next = bidRepository.findFirstByAuctionIdOrderByPriceDescBidTimeDesc(auctionId);
+        if (next != null) {
+            next.setIsHighest(true);
+            bidRepository.save(next);
+
+            auction.setCurrentPrice(next.getPrice());
+            auction.setWinner(next.getBidder());
+            auction.setFinalPrice(next.getPrice());
+        } else {
+            auction.setCurrentPrice(auction.getStartPrice());
+            auction.setWinner(null);
+            auction.setFinalPrice(null);
+        }
+
+        auction.setBidCount((int) bidRepository.countByAuctionId(auctionId));
+        auction.setUpdateTime(now);
+        auctionRepository.save(auction);
+    }
+
+    @Override
     public void confirmTransaction(Long auctionId, Long userId) {
         Auction auction = auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new RuntimeException("拍卖不存在"));
 
-        if (!userId.equals(auction.getWinnerId())) {
+        if (!"ended".equals(auction.getStatus())) {
+            throw new RuntimeException("拍卖未结束");
+        }
+        if (auction.getWinnerId() == null || !auction.getWinnerId().equals(userId)) {
             throw new RuntimeException("您不是中标者");
         }
 
         LocalDateTime now = LocalDateTime.now();
-
-        // 检查是否已确认/是否过期
-        Transaction existing = transactionRepository.findByAuctionId(auctionId).orElse(null);
-        if (existing != null) {
-            String status = existing.getConfirmStatus() == null ? "" : existing.getConfirmStatus().trim().toLowerCase();
+        Transaction tx = transactionRepository.findByAuctionId(auctionId).orElse(null);
+        if (tx != null) {
+            String status = tx.getConfirmStatus() == null ? "" : tx.getConfirmStatus().trim().toLowerCase(Locale.ROOT);
             if (!"pending".equals(status)) {
                 throw new RuntimeException("已经确认过成交");
             }
-            if (existing.getConfirmDeadline() != null && existing.getConfirmDeadline().isBefore(now)) {
-                expireConfirmation(existing, "中标者超时未确认");
+            if (tx.getConfirmDeadline() != null && tx.getConfirmDeadline().isBefore(now)) {
+                auctionConfirmationExpiryService.expireInNewTransaction(tx.getId(), "中标者超时未确认");
                 throw new RuntimeException("已超过确认时限，视为放弃成交");
             }
-        }
-
-        // 如果交易单不存在则创建
-        if (existing == null) {
-            existing = new Transaction();
-            existing.setCode(generateTransactionCode());
-            existing.setAuction(auction);
-            existing.setAsset(auction.getAsset());
-            existing.setWinner(auction.getWinner() != null ? auction.getWinner() : userRepository.findById(userId).orElse(null));
-            existing.setFinalPrice(auction.getFinalPrice());
-            existing.setConfirmStatus("confirmed");
-            existing.setConfirmTime(now);
-            existing.setConfirmDeadline(now);
-            existing.setPaymentStatus("pending");
-            existing.setPaymentDeadline(now.plusDays(2));
-            existing.setCreateTime(now);
-            existing.setUpdateTime(now);
-            transactionRepository.save(existing);
+            tx.setConfirmStatus("confirmed");
+            tx.setConfirmTime(now);
+            tx.setPaymentDeadline(now.plusDays(2));
+            tx.setUpdateTime(now);
+            transactionRepository.save(tx);
         } else {
-            if (existing.getAuction() == null) {
-                existing.setAuction(auction);
-            }
-            if (existing.getAsset() == null) {
-                existing.setAsset(auction.getAsset());
-            }
-            if (existing.getWinner() == null) {
-                existing.setWinner(auction.getWinner() != null ? auction.getWinner() : userRepository.findById(userId).orElse(null));
-            }
-            existing.setConfirmStatus("confirmed");
-            existing.setConfirmTime(now);
-            existing.setPaymentDeadline(now.plusDays(2));
-            existing.setUpdateTime(now);
-            transactionRepository.save(existing);
+            tx = new Transaction();
+            tx.setCode(generateTransactionCode());
+            tx.setAuction(auction);
+            tx.setAsset(auction.getAsset());
+            tx.setWinner(auction.getWinner());
+            tx.setFinalPrice(auction.getFinalPrice());
+            tx.setConfirmStatus("confirmed");
+            tx.setConfirmTime(now);
+            tx.setConfirmDeadline(now);
+            tx.setPaymentStatus("pending");
+            tx.setPaymentDeadline(now.plusDays(2));
+            tx.setDisposalStatus("pending");
+            tx.setCreateTime(now);
+            tx.setUpdateTime(now);
+            transactionRepository.save(tx);
         }
 
-        // 更新资产状态为"待处置"
         Asset asset = auction.getAsset();
-        asset.setStatus("待处置");
-        assetRepository.save(asset);
+        if (asset != null) {
+            asset.setStatus("待处置");
+            asset.setUpdateTime(now);
+            assetRepository.save(asset);
+        }
     }
 
     @Override
@@ -278,13 +344,11 @@ public class AuctionServiceImpl implements AuctionService {
     }
 
     @Override
-    public List<AuctionDTO> getMyAuctionsDTO(Long userId, String status) {
+    public List<AuctionDTO> getMyAuctionsDTO(Long userId, String status, String confirmStatus) {
         checkAndEndAuctions();
         List<Auction> auctions = auctionRepository.findMyAuctions(userId);
-        List<AuctionDTO> dtos = auctions.stream()
-                .map(AuctionMapper::toDTO)
-                .collect(Collectors.toList());
 
+        List<AuctionDTO> dtos = auctions.stream().map(AuctionMapper::toDTO).collect(Collectors.toList());
         for (int i = 0; i < auctions.size(); i++) {
             Auction auction = auctions.get(i);
             AuctionDTO dto = dtos.get(i);
@@ -299,16 +363,19 @@ public class AuctionServiceImpl implements AuctionService {
             dto.setIsHighest(myMaxBid != null && highest != null && myMaxBid.compareTo(highest) == 0);
 
             if ("ended".equals(auction.getStatus())) {
-                boolean success = auction.getWinnerId() != null
-                        && (!Boolean.TRUE.equals(auction.getHasReservePrice())
-                        || (auction.getFinalPrice() != null && auction.getReservePrice() != null
-                        && auction.getFinalPrice().compareTo(auction.getReservePrice()) >= 0));
-
-                if (success && userId.equals(auction.getWinnerId())) {
+                if (auction.getWinnerId() != null && auction.getWinnerId().equals(userId)) {
                     dto.setResult("won");
-                    dto.setWinTime(auction.getEndTime());
                     Transaction tx = transactionRepository.findByAuctionId(auction.getId()).orElse(null);
-                    dto.setConfirmStatus(tx != null ? tx.getConfirmStatus() : "pending");
+                    if (tx != null) {
+                        String cs = tx.getConfirmStatus() == null ? null : tx.getConfirmStatus().trim().toLowerCase(Locale.ROOT);
+                        dto.setConfirmStatus(cs);
+                        dto.setWinTime(tx.getCreateTime() != null ? tx.getCreateTime() : auction.getEndTime());
+                    } else {
+                        dto.setConfirmStatus("pending");
+                        dto.setWinTime(auction.getEndTime());
+                    }
+                } else if (auction.getWinnerId() == null) {
+                    dto.setResult("failed");
                 } else {
                     dto.setResult("lost");
                 }
@@ -317,49 +384,100 @@ public class AuctionServiceImpl implements AuctionService {
             }
         }
 
-        return filterMyAuctionsByStatus(dtos, status);
+        String statusFilter = status == null ? "" : status.trim().toLowerCase(Locale.ROOT);
+        if (!statusFilter.isBlank() && !"all".equals(statusFilter)) {
+            if ("won".equals(statusFilter) || "lost".equals(statusFilter)) {
+                if ("lost".equals(statusFilter)) {
+                    dtos = dtos.stream()
+                            .filter(dto -> "lost".equalsIgnoreCase(dto.getResult()) || "failed".equalsIgnoreCase(dto.getResult()))
+                            .collect(Collectors.toList());
+                } else {
+                    dtos = dtos.stream()
+                            .filter(dto -> statusFilter.equalsIgnoreCase(dto.getResult()))
+                            .collect(Collectors.toList());
+                }
+            } else {
+                dtos = dtos.stream()
+                        .filter(dto -> statusFilter.equalsIgnoreCase(dto.getStatus()))
+                        .collect(Collectors.toList());
+            }
+        }
+
+        String confirmStatusFilter = confirmStatus == null ? "" : confirmStatus.trim().toLowerCase(Locale.ROOT);
+        if (!confirmStatusFilter.isBlank()) {
+            dtos = dtos.stream()
+                    .filter(dto -> confirmStatusFilter.equalsIgnoreCase(
+                            dto.getConfirmStatus() == null ? "" : dto.getConfirmStatus().trim()))
+                    .collect(Collectors.toList());
+        }
+
+        return dtos;
+    }
+
+    @Override
+    public List<Bid> getBidsByAuctionId(Long auctionId) {
+        return bidRepository.findByAuctionIdOrderByBidTimeDesc(auctionId);
     }
 
     @Override
     @Transactional
     public void checkAndEndAuctions() {
         LocalDateTime now = LocalDateTime.now();
-        
-        // 1. 检查应该开始的拍卖
-        List<Auction> notStartedAuctions = auctionRepository.findByStatus("not_started");
-        for (Auction auction : notStartedAuctions) {
-            if (auction.getStartTime().isBefore(now) || auction.getStartTime().isEqual(now)) {
-                // 拍卖应该开始
+
+        List<Auction> notStarted = auctionRepository.findByStatus("not_started");
+        for (Auction auction : notStarted) {
+            if (auction.getStartTime() != null && !auction.getStartTime().isAfter(now)) {
                 auction.setStatus("in_progress");
                 auction.setUpdateTime(now);
                 auctionRepository.save(auction);
-                log.info("拍卖 {} 已开始", auction.getName());
             }
         }
-        
-        // 2. 检查应该结束的拍卖
-        List<Auction> inProgressAuctions = auctionRepository.findByStatus("in_progress");
 
-        for (Auction auction : inProgressAuctions) {
-            if (auction.getEndTime().isBefore(now)) {
-                // 拍卖结束，检查是否有中标者
-                if (auction.getWinnerId() != null) {
-                    // 有中标者，检查是否达到保留价
-                    if (auction.getHasReservePrice() &&
-                        auction.getFinalPrice().compareTo(auction.getReservePrice()) < 0) {
-                        // 未达到保留价，流拍
-                        endAuction(auction, "ended");
-                    } else {
-                        // 达到保留价或未设置保留价，成交
-                        endAuction(auction, "ended");
-                        
-                        // 创建交易记录
-                        createTransaction(auction);
-                    }
-                } else {
-                    // 无中标者，流拍
-                    endAuction(auction, "ended");
+        List<Auction> inProgress = auctionRepository.findByStatus("in_progress");
+        for (Auction auction : inProgress) {
+            if (auction.getEndTime() == null || auction.getEndTime().isAfter(now)) {
+                continue;
+            }
+
+            Bid highest = bidRepository.findFirstByAuctionIdOrderByPriceDescBidTimeDesc(auction.getId());
+            boolean hasWinner = highest != null && highest.getBidderId() != null && highest.getPrice() != null;
+
+            if (hasWinner && Boolean.TRUE.equals(auction.getHasReservePrice()) && auction.getReservePrice() != null) {
+                if (highest.getPrice().compareTo(auction.getReservePrice()) < 0) {
+                    hasWinner = false;
                 }
+            }
+
+            auction.setStatus("ended");
+            auction.setUpdateTime(now);
+            if (hasWinner) {
+                auction.setWinner(highest.getBidder());
+                auction.setFinalPrice(highest.getPrice());
+                auction.setCurrentPrice(highest.getPrice());
+            } else {
+                auction.setWinner(null);
+                auction.setFinalPrice(null);
+                auction.setCurrentPrice(auction.getStartPrice());
+            }
+            auctionRepository.save(auction);
+
+            Asset asset = auction.getAsset();
+            if (asset != null) {
+                if (hasWinner) {
+                    asset.setStatus("待处置");
+                    assetHistoryService.addHistory(asset.getId(), "拍卖结果",
+                            "拍卖结束：成交，中标者：" + auction.getWinnerId() + "，成交价：" + auction.getFinalPrice(), null);
+                } else {
+                    asset.setStatus("待拍卖");
+                    assetHistoryService.addHistory(asset.getId(), "拍卖结果",
+                            "拍卖结束：流拍，原因：" + (highest == null ? "无人出价" : "未达保留价"), null);
+                }
+                asset.setUpdateTime(now);
+                assetRepository.save(asset);
+            }
+
+            if (hasWinner) {
+                ensureTransactionForEndedAuction(auction, now);
             }
         }
     }
@@ -371,93 +489,79 @@ public class AuctionServiceImpl implements AuctionService {
         List<Transaction> expired = transactionRepository.findByConfirmStatusInAndConfirmDeadlineBefore(
                 List.of("pending", "PENDING"), now);
         if (expired == null || expired.isEmpty()) {
+            reconcileExpiredConfirmationPaymentStatus(now);
             return;
         }
         for (Transaction tx : expired) {
-            expireConfirmation(tx, "中标者超时未确认");
+            auctionConfirmationExpiryService.expireInNewTransaction(tx.getId(), "中标者超时未确认");
+        }
+        reconcileExpiredConfirmationPaymentStatus(now);
+    }
+
+    private void reconcileExpiredConfirmationPaymentStatus(LocalDateTime now) {
+        List<Transaction> inconsistent = transactionRepository.findByConfirmStatusInAndPaymentStatusIn(
+                List.of("expired", "EXPIRED"),
+                List.of("pending", "PENDING")
+        );
+        if (inconsistent == null || inconsistent.isEmpty()) {
+            return;
+        }
+        for (Transaction tx : inconsistent) {
+            tx.setPaymentStatus("expired");
+            if (tx.getDisposalStatus() != null) {
+                String disposalStatus = tx.getDisposalStatus().trim().toLowerCase(Locale.ROOT);
+                if ("pending".equals(disposalStatus)) {
+                    tx.setDisposalStatus("cancelled");
+                }
+            }
+            tx.setUpdateTime(now);
+        }
+        transactionRepository.saveAll(inconsistent);
+    }
+
+    @Override
+    @Transactional
+    public void checkExpiredPayments() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Transaction> expired = transactionRepository.findByConfirmStatusInAndPaymentStatusInAndPaymentDeadlineBefore(
+                List.of("confirmed", "CONFIRMED"),
+                List.of("pending", "PENDING"),
+                now
+        );
+        if (expired == null || expired.isEmpty()) {
+            return;
+        }
+        for (Transaction tx : expired) {
+            auctionPaymentExpiryService.expireInNewTransaction(tx.getId(), "中标者付款超时未完成");
         }
     }
 
-    private void expireConfirmation(Transaction tx, String reason) {
-        LocalDateTime now = LocalDateTime.now();
-        tx.setConfirmStatus("expired");
+    private void ensureTransactionForEndedAuction(Auction auction, LocalDateTime now) {
+        if (auction == null || auction.getId() == null) {
+            return;
+        }
+        if (transactionRepository.findByAuctionId(auction.getId()).isPresent()) {
+            return;
+        }
+
+        Transaction tx = new Transaction();
+        tx.setCode(generateTransactionCode());
+        tx.setAuction(auction);
+        tx.setAsset(auction.getAsset());
+        tx.setWinner(auction.getWinner());
+        tx.setFinalPrice(auction.getFinalPrice());
+        tx.setConfirmStatus("pending");
+        tx.setConfirmDeadline(now.plusDays(1));
+        tx.setPaymentStatus("pending");
+        tx.setPaymentDeadline(now.plusDays(2));
+        tx.setDisposalStatus("pending");
+        tx.setCreateTime(now);
         tx.setUpdateTime(now);
         transactionRepository.save(tx);
-
-        if (tx.getAssetId() != null) {
-            assetRepository.findById(tx.getAssetId()).ifPresent(asset -> {
-                asset.setStatus("待拍卖");
-                asset.setUpdateTime(now);
-                assetRepository.save(asset);
-                assetHistoryService.addHistory(asset.getId(), "拍卖结果", reason + "，资产退回待拍卖", tx.getWinnerId());
-            });
-        }
-
-        if (tx.getWinnerId() != null) {
-            userRepository.findById(tx.getWinnerId()).ifPresent(user -> {
-                user.setBidBanUntil(now.plusMonths(3));
-                userRepository.save(user);
-            });
-        }
     }
 
-    private void recordAuctionHistory(Auction auction, Asset asset, String result, String extra) {
-        String content = "拍卖结束：" + result + "，拍卖名称：" + auction.getName();
-        if (extra != null && !extra.isBlank()) {
-            content += "，" + extra;
-        }
-        assetHistoryService.addHistory(asset.getId(), "拍卖结果", content, null);
-    }
-
-    /**
-     * 结束拍卖
-     */
-    private void endAuction(Auction auction, String status) {
-        auction.setStatus(status);
-        auction.setUpdateTime(LocalDateTime.now());
-        auctionRepository.save(auction);
-
-        // 更新资产状态
-        Asset asset = auction.getAsset();
-        if ("ended".equals(status)) {
-            if (auction.getWinnerId() != null && 
-                (!auction.getHasReservePrice() || 
-                 auction.getFinalPrice().compareTo(auction.getReservePrice()) >= 0)) {
-                // 有中标者且达到保留价或未设置保留价
-                asset.setStatus("待处置");
-                String winnerInfo = auction.getWinner() != null ? auction.getWinner().getName() : String.valueOf(auction.getWinnerId());
-                recordAuctionHistory(auction, asset, "成交", "中标者：" + winnerInfo + "，成交价：" + auction.getFinalPrice());
-            } else {
-                // 无中标者或未达到保留价
-                asset.setStatus("待拍卖");
-                String reason = (auction.getWinnerId() == null) ? "无人出价" : "未达保留价";
-                recordAuctionHistory(auction, asset, "流拍", reason);
-            }
-        }
-        assetRepository.save(asset);
-    }
-    
-    /**
-     * 创建交易记录
-     */
-    private void createTransaction(Auction auction) {
-        Transaction transaction = new Transaction();
-        transaction.setCode(generateTransactionCode());
-        transaction.setAuction(auction);
-        transaction.setAsset(auction.getAsset());
-        transaction.setWinner(auction.getWinner());
-        LocalDateTime now = LocalDateTime.now();
-        transaction.setFinalPrice(auction.getFinalPrice());
-        transaction.setConfirmStatus("pending");
-        transaction.setConfirmDeadline(now.plusDays(1));
-        transaction.setPaymentStatus("pending");
-        // 先给一个默认值，确认成交时会重置为确认时间+48小时
-        transaction.setPaymentDeadline(now.plusDays(2));
-        transaction.setCreateTime(now);
-        transaction.setUpdateTime(now);
-        
-        transactionRepository.save(transaction);
-        log.info("为拍卖 {} 创建交易记录成功", auction.getName());
+    private String generateTransactionCode() {
+        return "TXN" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8);
     }
 
     private boolean isDepartmentAllowed(Auction auction, User user) {
@@ -481,49 +585,27 @@ public class AuctionServiceImpl implements AuctionService {
         if (raw == null || raw.isBlank()) {
             return ids;
         }
-        if ("all".equalsIgnoreCase(raw.trim())) {
-            return ids;
+        String[] parts = raw.split(",");
+        for (String p : parts) {
+            String s = p == null ? "" : p.trim();
+            if (s.isEmpty() || "all".equalsIgnoreCase(s)) {
+                continue;
+            }
+            try {
+                ids.add(Long.parseLong(s));
+            } catch (NumberFormatException ignored) {
+            }
         }
-        Arrays.stream(raw.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .forEach(s -> {
-                    try {
-                        ids.add(Long.parseLong(s));
-                    } catch (NumberFormatException ignored) {
-                    }
-                });
         return ids;
     }
 
-    private List<AuctionDTO> filterMyAuctionsByStatus(List<AuctionDTO> list, String status) {
-        if (list == null || list.isEmpty()) {
-            return list;
+    private static BigDecimal requirePositiveAmount(BigDecimal value, String fieldName) {
+        if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(fieldName + "必须大于0");
         }
-        if (status == null || status.isBlank() || "all".equalsIgnoreCase(status)) {
-            return list;
+        if (value.stripTrailingZeros().scale() > 2) {
+            throw new IllegalArgumentException(fieldName + "最多保留2位小数");
         }
-        return list.stream().filter(item -> {
-            if ("in_progress".equalsIgnoreCase(status)) {
-                return "in_progress".equals(item.getStatus());
-            }
-            if ("ended".equalsIgnoreCase(status)) {
-                return "ended".equalsIgnoreCase(item.getStatus());
-            }
-            if ("won".equalsIgnoreCase(status)) {
-                return "won".equalsIgnoreCase(item.getResult());
-            }
-            if ("lost".equalsIgnoreCase(status)) {
-                return "lost".equalsIgnoreCase(item.getResult());
-            }
-            return true;
-        }).collect(Collectors.toList());
-    }
-
-    /**
-     * 生成交易单编号
-     */
-    private String generateTransactionCode() {
-        return "TXN" + System.currentTimeMillis();
+        return value;
     }
 }

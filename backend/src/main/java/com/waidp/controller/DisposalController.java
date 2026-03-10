@@ -97,9 +97,12 @@ public class DisposalController {
     @PreAuthorize("hasAnyRole('ASSET_SPECIALIST','asset_specialist','资产专员','ADMIN','admin','SYSTEM_ADMIN','system_admin','系统管理员')")
     public Result<PageResult<TransactionDTO>> getPendingTransactions (
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createTime").descending());
-        Page<TransactionDTO> transactionPage = disposalService.getPendingTransactions(pageable);
+        Long currentUserId = (Long) httpRequest.getAttribute("userId");
+        String role = (String) httpRequest.getAttribute("role");
+        Page<TransactionDTO> transactionPage = disposalService.getPendingTransactions(pageable, currentUserId, role);
         return Result.success(PageResult.of(transactionPage));
     }
 
@@ -110,9 +113,12 @@ public class DisposalController {
     @PreAuthorize("hasAnyRole('ASSET_SPECIALIST','asset_specialist','资产专员','ADMIN','admin','SYSTEM_ADMIN','system_admin','系统管理员')")
     public Result<PageResult<TransactionDTO>> getCompletedTransactions (
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createTime").descending());
-        Page<TransactionDTO> transactionPage = disposalService.getCompletedTransactions(pageable);
+        Long currentUserId = (Long) httpRequest.getAttribute("userId");
+        String role = (String) httpRequest.getAttribute("role");
+        Page<TransactionDTO> transactionPage = disposalService.getCompletedTransactions(pageable, currentUserId, role);
         return Result.success(PageResult.of(transactionPage));
     }
 

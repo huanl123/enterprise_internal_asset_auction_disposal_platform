@@ -5,6 +5,7 @@ import com.waidp.entity.AssetHistory;
 import com.waidp.repository.AssetRepository;
 import com.waidp.service.AssetApprovalService;
 import com.waidp.service.AssetHistoryService;
+import com.waidp.util.AmountValidationUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -60,12 +61,24 @@ public class AssetApprovalServiceImpl implements AssetApprovalService {
         if (!"待审核".equals(asset.getStatus())) {
             throw new RuntimeException("只有待审核状态的资产可以被审核");
         }
+
+        AmountValidationUtils.requirePositiveAmount(startPrice, "起拍价");
+        BigDecimal finalReservePrice = reservePrice;
+        if (Boolean.TRUE.equals(hasReservePrice)) {
+            finalReservePrice = finalReservePrice != null ? finalReservePrice : asset.getCurrentValue();
+            AmountValidationUtils.requirePositiveAmount(finalReservePrice, "保留价");
+            if (finalReservePrice.compareTo(startPrice) < 0) {
+                throw new IllegalArgumentException("保留价不能低于起拍价");
+            }
+        }
         
         // 更新资产价格和状态
         asset.setStartPrice(startPrice);
         asset.setHasReservePrice(hasReservePrice);
-        if (hasReservePrice && reservePrice != null) {
-            asset.setReservePrice(reservePrice);
+        if (Boolean.TRUE.equals(hasReservePrice)) {
+            asset.setReservePrice(finalReservePrice);
+        } else {
+            asset.setReservePrice(null);
         }
         asset.setStatus("待拍卖");
         asset.setUpdateTime(LocalDateTime.now());
@@ -74,8 +87,8 @@ public class AssetApprovalServiceImpl implements AssetApprovalService {
         // 构建审核记录内容
         StringBuilder historyContent = new StringBuilder("资产审核通过，状态变更为待拍卖。");
         historyContent.append("起拍价调整为：¥").append(startPrice);
-        if (hasReservePrice && reservePrice != null) {
-            historyContent.append("，保留价设置为：¥").append(reservePrice);
+        if (Boolean.TRUE.equals(hasReservePrice) && finalReservePrice != null) {
+            historyContent.append("，保留价设置为：¥").append(finalReservePrice);
         }
         if (remark != null && !remark.trim().isEmpty()) {
             historyContent.append("。备注：").append(remark);

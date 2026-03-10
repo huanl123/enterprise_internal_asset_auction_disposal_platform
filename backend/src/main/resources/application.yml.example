@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: waidp-backend
+
+  datasource:
+    # 请改为你本机 MySQL 配置
+    url: jdbc:mysql://localhost:3306/waidp_springboot_master?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&zeroDateTimeBehavior=CONVERT_TO_NULL
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none # 推荐导入 SQL 初始化表结构；如本地快速体验可改 update/create
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+upload:
+  # 上传根目录（建议用相对路径，项目启动会自动创建）
+  path: uploads
+
+file:
+  # 凭证上传目录（按你的需要修改）
+  upload-dir: uploads/Voucher
+  access-url: http://localhost
+
+server:
+  port: 8084
+  servlet:
+    context-path: /
+
+jwt:
+  # 建议改为你自己的密钥，并通过环境变量注入
+  secret: WAIDP_SECRET_KEY_CHANGE_ME
+  expiration: 86400000 # 24 小时（毫秒）
+
+logging:
+  level:
+    com.waidp: info
+

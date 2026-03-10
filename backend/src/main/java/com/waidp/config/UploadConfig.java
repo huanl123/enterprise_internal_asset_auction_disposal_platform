@@ -8,9 +8,6 @@ import org.springframework.stereotype.Component;
 
 import java.io.File;
 
-/**
- * 上传配置，确保上传目录存在
- */
 @Component
 @Slf4j
 public class UploadConfig implements ApplicationRunner {
@@ -21,22 +18,20 @@ public class UploadConfig implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         try {
-            // 创建上传根目录
             File uploadDir = new File(uploadPath);
             if (!uploadDir.exists()) {
                 uploadDir.mkdirs();
                 log.info("创建上传目录: {}", uploadDir.getAbsolutePath());
             }
 
-            // 创建资产图片目录
             File assetsDir = new File(uploadPath, "assets");
             if (!assetsDir.exists()) {
                 assetsDir.mkdirs();
                 log.info("创建资产图片目录: {}", assetsDir.getAbsolutePath());
             }
-
         } catch (Exception e) {
             log.error("初始化上传目录失败", e);
         }
     }
 }
+

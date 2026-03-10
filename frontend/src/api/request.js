@@ -39,6 +39,10 @@ request.interceptors.response.use(
     const requestUrl = error.config?.url || ''
     const isAuthRequest = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register')
 
+    if (isAuthRequest && error.response?.data?.message) {
+      return Promise.reject(new Error(error.response.data.message))
+    }
+
     if (!isAuthRequest) {
       if (error.response) {
         if (error.response.status === 401) {
