@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="820" viewBox="0 0 1400 820">
+  <defs>
+    <style>
+      .title { font: 700 28px "Microsoft YaHei","PingFang SC","Noto Sans CJK SC",Arial,sans-serif; fill:#111827; }
+      .sub { font: 400 14px "Microsoft YaHei","PingFang SC","Noto Sans CJK SC",Arial,sans-serif; fill:#6B7280; }
+      .text { font: 400 14px "Microsoft YaHei","PingFang SC","Noto Sans CJK SC",Arial,sans-serif; fill:#111827; }
+      .h { font: 700 16px "Microsoft YaHei","PingFang SC","Noto Sans CJK SC",Arial,sans-serif; fill:#111827; }
+      .box { fill:#FFFFFF; stroke:#111827; stroke-width:2; }
+      .panel { fill:#F8FAFC; stroke:#CBD5E1; stroke-width:2; }
+      .chip { fill:#EEF2FF; stroke:#CBD5E1; stroke-width:2; }
+      .muted { fill:#6B7280; }
+      .line { stroke:#111827; stroke-width:2; fill:none; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1400" height="820" fill="#FFFFFF"/>
+  <text x="700" y="56" class="title" text-anchor="middle">资产管理页面截图（示意）</text>
+  <text x="700" y="84" class="sub" text-anchor="middle">包含：资产列表、筛选查询、新增资产表单、图片上传区域（用于论文占位，可替换为真实截图）</text>
+
+  <!-- Browser frame -->
+  <rect x="80" y="120" width="1240" height="640" rx="18" class="box"/>
+  <rect x="80" y="120" width="1240" height="52" rx="18" class="panel"/>
+  <circle cx="110" cy="146" r="6" fill="#EF4444"/>
+  <circle cx="130" cy="146" r="6" fill="#F59E0B"/>
+  <circle cx="150" cy="146" r="6" fill="#10B981"/>
+  <rect x="200" y="134" width="860" height="24" rx="12" class="box"/>
+  <text x="215" y="151" class="sub">http://localhost:5173/asset</text>
+
+  <!-- Sidebar -->
+  <rect x="100" y="190" width="240" height="550" rx="14" class="panel"/>
+  <text x="120" y="224" class="h">菜单</text>
+  <rect x="120" y="245" width="200" height="34" rx="10" class="chip"/>
+  <text x="136" y="267" class="text">资产管理</text>
+  <text x="136" y="310" class="text muted">折旧规则</text>
+  <text x="136" y="350" class="text muted">拍卖管理</text>
+  <text x="136" y="390" class="text muted">财务审核</text>
+  <text x="136" y="430" class="text muted">资产处置</text>
+  <text x="136" y="470" class="text muted">统计查询</text>
+
+  <!-- Main content -->
+  <rect x="360" y="190" width="940" height="550" rx="14" class="panel"/>
+  <text x="390" y="224" class="h">资产列表</text>
+
+  <!-- Filters -->
+  <rect x="390" y="245" width="540" height="44" rx="12" class="box"/>
+  <text x="405" y="273" class="sub">筛选：资产名称 / 状态 / 部门</text>
+  <rect x="950" y="245" width="150" height="44" rx="12" class="chip"/>
+  <text x="1025" y="273" class="text" text-anchor="middle">查询</text>
+  <rect x="1120" y="245" width="150" height="44" rx="12" class="chip"/>
+  <text x="1195" y="273" class="text" text-anchor="middle">新增资产</text>
+
+  <!-- Table -->
+  <rect x="390" y="310" width="880" height="300" rx="12" class="box"/>
+  <rect x="390" y="310" width="880" height="42" rx="12" class="panel"/>
+  <text x="410" y="337" class="sub">编号</text>
+  <text x="560" y="337" class="sub">名称</text>
+  <text x="820" y="337" class="sub">部门</text>
+  <text x="960" y="337" class="sub">状态</text>
+  <text x="1120" y="337" class="sub">操作</text>
+  <!-- Rows -->
+  <line x1="390" y1="394" x2="1270" y2="394" class="line" opacity="0.25"/>
+  <line x1="390" y1="436" x2="1270" y2="436" class="line" opacity="0.25"/>
+  <line x1="390" y1="478" x2="1270" y2="478" class="line" opacity="0.25"/>
+  <line x1="390" y1="520" x2="1270" y2="520" class="line" opacity="0.25"/>
+  <line x1="390" y1="562" x2="1270" y2="562" class="line" opacity="0.25"/>
+  <text x="410" y="379" class="text muted">ASSET-…</text>
+  <text x="560" y="379" class="text muted">示例资产</text>
+  <rect x="1105" y="362" width="70" height="26" rx="8" class="chip"/>
+  <text x="1140" y="380" class="sub" text-anchor="middle">详情</text>
+  <rect x="1185" y="362" width="70" height="26" rx="8" class="chip"/>
+  <text x="1220" y="380" class="sub" text-anchor="middle">编辑</text>
+
+  <!-- Form modal (新增资产) -->
+  <rect x="520" y="360" width="600" height="360" rx="16" class="box" opacity="0.98"/>
+  <rect x="520" y="360" width="600" height="48" rx="16" class="panel"/>
+  <text x="820" y="392" class="h" text-anchor="middle">新增资产</text>
+  <text x="550" y="435" class="sub">基础信息</text>
+  <rect x="550" y="450" width="260" height="36" rx="10" class="panel"/>
+  <text x="565" y="474" class="sub">资产编号</text>
+  <rect x="840" y="450" width="250" height="36" rx="10" class="panel"/>
+  <text x="855" y="474" class="sub">资产名称</text>
+  <rect x="550" y="500" width="540" height="36" rx="10" class="panel"/>
+  <text x="565" y="524" class="sub">规格描述 / 使用部门 / 购置日期 / 原值</text>
+
+  <text x="550" y="565" class="sub">图片上传</text>
+  <rect x="550" y="580" width="540" height="90" rx="12" class="panel"/>
+  <text x="820" y="632" class="sub" text-anchor="middle">拖拽或点击上传多张实物照片</text>
+
+  <rect x="910" y="686" width="180" height="40" rx="12" class="chip"/>
+  <text x="1000" y="712" class="text" text-anchor="middle">保存</text>
+</svg>
+

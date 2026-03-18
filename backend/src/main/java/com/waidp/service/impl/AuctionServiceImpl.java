@@ -32,11 +32,23 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * 拍卖服务实现类
+ * 实现拍卖活动的核心业务逻辑，包括：
+ * 拍卖创建与管理、竞拍出价逻辑（支持加价幅度校验）、
+ * 拍卖延时机制（结束前5分钟内出价自动延长5分钟）、
+ * 撤价功能（结束前12小时内不可撤）、
+ * 成交确认与超时处理、保留价校验、
+ * 部门权限控制、定时任务：自动检查和结束拍卖、处理超时等。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuctionServiceImpl implements AuctionService {
 
+    /**
+     * 最小拍卖时长（秒），5分钟
+     */
     private static final long MIN_AUCTION_SECONDS = 5 * 60;
 
     private final AuctionRepository auctionRepository;
@@ -78,6 +90,13 @@ public class AuctionServiceImpl implements AuctionService {
     @Override
     @Transactional
     public void createAuction(Auction auction) {
+        // 创建拍卖活动
+        // 业务规则：
+        // 资产状态必须为"待拍卖"、拍卖时长不能少于5分钟、
+        // 同一资产不能有多个未结束的拍卖、保留价不能低于起拍价
+        // @param auction 拍卖活动信息
+        // @throws IllegalArgumentException 参数验证失败
+        // @throws RuntimeException 资产状态不合法或已存在未结束拍卖
         if (auction == null) {
             throw new IllegalArgumentException("拍卖信息不能为空");
         }
@@ -170,6 +189,16 @@ public class AuctionServiceImpl implements AuctionService {
     @Override
     @Transactional
     public void bid(Long auctionId, Long userId, BigDecimal price) {
+        // 用户参与竞拍出价
+        // 业务规则：
+        // 用户必须未被禁用且未被禁竞、拍卖必须处于"进行中"状态、
+        // 用户所在部门必须被允许参与该拍卖、
+        // 出价必须 ≥ 当前价 + 加价幅度、
+        // 拍卖结束前5分钟内出价，自动延时5分钟
+        // @param auctionId 拍卖活动ID
+        // @param userId 出价用户ID
+        // @param price 出价金额
+        // @throws RuntimeException 各种业务规则校验失败
         Auction auction = auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new RuntimeException("拍卖不存在"));
         User user = userRepository.findById(userId)
@@ -238,6 +267,13 @@ public class AuctionServiceImpl implements AuctionService {
     @Override
     @Transactional
     public void withdrawHighestBid(Long auctionId, Long userId) {
+        // 撤回当前最高出价
+        // 业务规则：
+        // 拍卖必须处于"进行中"状态、拍卖结束前12小时内不可撤价、
+        // 仅当前最高出价者可撤价、撤价后，次高出价自动成为最高出价
+        // @param auctionId 拍卖活动ID
+        // @param userId 出价用户ID
+        // @throws RuntimeException 各种业务规则校验失败
         Auction auction = auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new RuntimeException("拍卖不存在"));
 
@@ -285,6 +321,14 @@ public class AuctionServiceImpl implements AuctionService {
 
     @Override
     public void confirmTransaction(Long auctionId, Long userId) {
+        // 中标者确认成交
+        // 业务规则：
+        // 仅拍卖中标者可以确认、必须在拍卖结束后24小时内确认、
+        // 超时未确认视为放弃成交，并触发3个月竞拍禁用惩罚、
+        // 确认后设置付款期限为确认后2天内
+        // @param auctionId 拍卖活动ID
+        // @param userId 中标用户ID
+        // @throws RuntimeException 非中标者或已超时
         Auction auction = auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new RuntimeException("拍卖不存在"));
 
@@ -422,6 +466,14 @@ public class AuctionServiceImpl implements AuctionService {
     @Override
     @Transactional
     public void checkAndEndAuctions() {
+        // 自动检查并结束拍卖（定时任务调用）
+        // 业务规则：
+        // 检查"未开始"的拍卖，到达开始时间则自动改为"进行中"、
+        // 检查"进行中"的拍卖，到达结束时间则自动结算、
+        // 结算规则：
+        // 无人出价 → 流拍，资产状态改回"待拍卖"、
+        // 有出价但未达保留价 → 流拍，资产状态改回"待拍卖"、
+        // 达到保留价 → 成交，资产状态改为"待处置"，生成交易单
         LocalDateTime now = LocalDateTime.now();
 
         List<Auction> notStarted = auctionRepository.findByStatus("not_started");
@@ -485,6 +537,13 @@ public class AuctionServiceImpl implements AuctionService {
     @Override
     @Transactional
     public void checkExpiredConfirmations() {
+        // 检查并处理超时未确认的成交（定时任务调用）
+        // 业务规则：
+        // 检查"待确认"的交易单，如果超过确认截止时间则自动过期、
+        // 过期后的处理：
+        // 确认状态改为"expired"、付款状态改为"expired"、
+        // 处置状态改为"cancelled"、中标者被禁用竞拍3个月、
+        // 资产状态改回"待拍卖"
         LocalDateTime now = LocalDateTime.now();
         List<Transaction> expired = transactionRepository.findByConfirmStatusInAndConfirmDeadlineBefore(
                 List.of("pending", "PENDING"), now);
@@ -522,6 +581,12 @@ public class AuctionServiceImpl implements AuctionService {
     @Override
     @Transactional
     public void checkExpiredPayments() {
+        // 检查并处理超时未付款的订单（定时任务调用）
+        // 业务规则：
+        // 检查"已确认"但"待付款"的交易单，如果超过付款截止时间则自动过期、
+        // 过期后的处理：
+        // 付款状态改为"expired"、中标者被禁用竞拍3个月、
+        // 资产状态改回"待拍卖"
         LocalDateTime now = LocalDateTime.now();
         List<Transaction> expired = transactionRepository.findByConfirmStatusInAndPaymentStatusInAndPaymentDeadlineBefore(
                 List.of("confirmed", "CONFIRMED"),

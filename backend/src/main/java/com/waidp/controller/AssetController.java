@@ -15,6 +15,15 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 资产管理控制器
+ * 提供资产管理的所有接口，包括：
+ * 资产列表查询（支持分页、多条件筛选）、资产详情查询、
+ * 资产创建、更新、删除、资产价值重新计算（根据折旧规则）、
+ * 资产历史记录查询等。
+ *
+ * 资产状态流转：待审核 → 待拍卖 → 拍卖中 → 待处置 → 已处置 / 流拍 → 待拍卖
+ */
 @RestController
 @RequestMapping("/api/assets")
 @RequiredArgsConstructor

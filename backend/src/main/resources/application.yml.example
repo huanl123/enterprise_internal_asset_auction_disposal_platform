@@ -3,7 +3,6 @@ spring:
     name: waidp-backend
 
   datasource:
-    # 请改为你本机 MySQL 配置
     url: jdbc:mysql://localhost:3306/waidp_springboot_master?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&zeroDateTimeBehavior=CONVERT_TO_NULL
     username: root
     password: root
@@ -38,7 +37,7 @@ server:
     context-path: /
 
 jwt:
-  # 建议改为你自己的密钥，并通过环境变量注入
+  # 密钥，并通过环境变量注入
   secret: WAIDP_SECRET_KEY_CHANGE_ME
   expiration: 86400000 # 24 小时（毫秒）
 

@@ -21,7 +21,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 鎷嶅崠鎺у埗鍣?
+ * 拍卖控制器
+ * 提供拍卖活动的所有接口，包括：
+ * 拍卖列表查询（支持分页、筛选、我的拍卖）、拍卖详情查询、
+ * 拍卖创建与删除（资产专员权限）、竞拍出价（一键出价、手动出价）、
+ * 撤价功能、成交确认（中标者）、竞拍记录查询等。
  */
 @RestController
 @RequestMapping("/api/auction")

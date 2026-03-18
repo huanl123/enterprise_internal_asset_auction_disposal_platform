@@ -29,7 +29,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * 资产服务实现
+ * 资产服务实现类
+ * 实现资产管理的核心业务逻辑，包括：
+ * 资产创建、查询、更新、删除、资产价值计算（根据折旧规则自动计算现值）、
+ * 资产状态流转、资产历史记录、资产图片管理等。
  */
 @Service
 @RequiredArgsConstructor

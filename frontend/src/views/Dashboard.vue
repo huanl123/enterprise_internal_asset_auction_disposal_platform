@@ -1,7 +1,8 @@
 <template>
-  <!-- 仪表盘页面 -->
+  <!-- 首页仪表盘，不同角色看到的内容不一样 -->
+  <!-- 员工看自己的竞拍数据，管理员/专员看待办事项和统计 -->
   <div class="dashboard">
-    <!-- 欢迎卡片 -->
+    <!-- 顶部欢迎区，显示用户名和当前角色 -->
     <el-card class="welcome-card" shadow="never">
       <div class="welcome">
         <div>
@@ -11,9 +12,9 @@
       </div>
     </el-card>
 
-    <!-- 功能入口区域（根据角色显示不同模块） -->
+    <!-- 功能入口，根据角色过滤掉不该看的模块 -->
     <el-row :gutter="20" class="entry-row" :class="{ single: isSingleEntry }">
-      <!-- 遍历可见的功能模块 -->
+      <!-- visibleEntrySections 已经过滤过，只显示当前角色能看的模块 -->
       <el-col
         v-for="section in visibleEntrySections"
         :key="section.key"
@@ -21,10 +22,9 @@
         :sm="isSingleEntry ? 24 : 12"
         :lg="isSingleEntry ? 24 : 8"
       >
-        <!-- 功能卡片 -->
+          <!-- 每个功能模块一张卡片 -->
         <el-card class="entry-card" shadow="hover">
           <template #header>
-            <!-- 卡片头部：标题 + 标签 -->
             <div class="card-header">
               <div class="entry-title">
                 <el-icon class="entry-icon"><component :is="section.icon" /></el-icon>
@@ -33,7 +33,7 @@
               <el-tag v-if="section.tag" size="small" effect="plain">{{ section.tag }}</el-tag>
             </div>
           </template>
-          <!-- 功能按钮组 -->
+          <!-- 快捷入口区 - 各个模块的快捷操作卡片 -->
           <div class="entry-actions">
             <el-button
               v-for="action in section.items"
@@ -50,9 +50,9 @@
       </el-col>
     </el-row>
 
-    <!-- 概览统计区域 -->
+    <!-- 底部功能模块 -->
     <el-row :gutter="20" class="overview-row">
-      <!-- 左侧卡片：我的竞拍/工作台概览 -->
+      <!-- 左侧：员工看自己的竞拍数据，管理员看待办事项 -->
       <el-col :xs="24" :lg="8">
         <el-card class="overview-card">
           <template #header>
@@ -61,17 +61,17 @@
             </div>
           </template>
 
-          <!-- 员工视图：竞拍统计 -->
+          <!-- 员工专属视图 -->
           <template v-if="isEmployee">
             <div class="bid-summary">
-              <!-- 提示信息 -->
-              <div class="bid-hint">查看你参与的竞拍情况与进度，确认成交后请在 48 小时内完成付款。</div>
-              <!-- 快捷操作 -->
+              <!-- 提醒用户中标后要及时确认 -->
+              <div class="bid-hint">查看你参与的竞拍情况与进度，中标后请在24小时内确认成交。              </div>
+              <!-- 两个快捷按钮，方便用户快速跳转 -->
               <div class="bid-actions">
                 <el-button type="primary" size="small" @click="goTo('/auction/my')">我的竞拍</el-button>
                 <el-button type="success" plain size="small" @click="goTo('/auction')">去参与竞拍</el-button>
               </div>
-              <!-- 竞拍统计数据（可点击跳转） -->
+              <!-- 5个数据指标，点击可以跳转到对应的筛选页面 -->
               <div class="bid-stats">
                 <div class="bid-item clickable" @click="goTo('/auction/my', { status: 'in_progress' })">
                   <div class="bid-label">进行中竞拍</div>
@@ -97,6 +97,7 @@
                   <div class="bid-value">{{ formatNumber(bidStats.pendingPayment) }}</div>
                 </div>
               </div>
+              <!-- 如果有进行中的竞拍，就显示最新的5条明细 -->
               <div class="bid-list" v-if="myBidList.length">
                 <div class="bid-list-title">进行中竞拍明细（领先/落后）</div>
                 <div class="bid-row" v-for="item in myBidList" :key="item.id">
@@ -111,9 +112,9 @@
             </div>
           </template>
 
-          <!-- 管理员/专员视图：待办事项 + 关键统计 -->
+          <!-- 管理员/专员视图 -->
           <template v-else>
-            <!-- 待办事项列表 -->
+            <!-- 待办事项，每种角色看到的都不一样 -->
             <div v-if="todoList.length" class="todo-list">
               <div v-for="item in todoList" :key="item.label" class="todo-item">
                 <div class="todo-main">
@@ -127,6 +128,7 @@
             </div>
             <el-empty v-else description="暂无待办" />
 
+            <!-- 分割线，下面是统计数字 -->
             <el-divider content-position="left">关键统计</el-divider>
             <div v-if="showStats" class="stat-grid">
               <div class="stat-item">
@@ -146,6 +148,7 @@
         </el-card>
       </el-col>
 
+      <!-- 右侧：最新的5条拍卖动态 -->
       <el-col :xs="24" :lg="16">
         <el-card class="overview-card">
           <template #header>
@@ -154,8 +157,8 @@
               <el-button text type="primary" @click="goTo('/auction')">查看拍卖</el-button>
             </div>
           </template>
-              <!-- 最新动态表格 -->
-              <el-table v-if="recentAuctions.length" :data="recentAuctions" stripe>
+          <!-- 表格显示最新的拍卖信息 -->
+          <el-table v-if="recentAuctions.length" :data="recentAuctions" stripe>
             <el-table-column prop="assetName" label="资产名称" min-width="160" />
             <el-table-column prop="currentPrice" label="当前价格" width="120" align="right">
               <template #default="{ row }">
@@ -183,13 +186,15 @@
 </template>
 
 <script setup>
-// 导入依赖
+// 导入Vue相关
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
+// 导入图标
 import {
   Goods, Histogram, Box, DataAnalysis, User, Wallet
 } from '@element-plus/icons-vue'
+// 导入状态管理和API
 import { useUserStore } from '@/stores/user'
 import {
   getDashboardStats,
@@ -201,15 +206,16 @@ import {
   getAssets
 } from '@/api'
 
-// 初始化路由和状态管理
+// 路由和用户状态
 const router = useRouter()
 const userStore = useUserStore()
 
-// 计算属性：用户名和角色
-const userName = computed(() => userStore.user?.name || userStore.user?.realName || '用户')
+// 获取用户信息用于显示
+const userName = computed(() => userStore.user?.name  || '用户')
 const roleLabel = computed(() => {
   const role = userStore.user?.role
   if (!role) return '未设置角色'
+  // 角色映射，把英文角色转成中文显示
   const roleMap = {
     'SYSTEM_ADMIN': '系统管理员',
     'ADMIN': '系统管理员',
@@ -225,15 +231,18 @@ const roleLabel = computed(() => {
   return roleMap[role] || role
 })
 
+// 判断当前用户是不是员工，用于控制显示哪些模块
 const showStats = computed(() => !userStore.hasAnyRole('普通员工'))
 const isEmployee = computed(() => userStore.hasAnyRole('普通员工'))
 
+// 管理员/专员看到的统计数据
 const stats = reactive({
   monthDisposals: 0,
   totalAmount: 0,
   failRate: 0
 })
 
+// 员工看到的竞拍统计数据
 const bidStats = reactive({
   inProgress: 0,
   ended: 0,
@@ -242,8 +251,10 @@ const bidStats = reactive({
   pendingPayment: 0
 })
 
+// 进行中的竞拍明细，最多显示5条
 const myBidList = ref([])
 
+// 待办事项的数量统计
 const todoStats = reactive({
   pendingAssets: 0,
   pendingFinanceApprovals: 0,
@@ -251,8 +262,10 @@ const todoStats = reactive({
   pendingDisposals: 0
 })
 
+// 最新的5条拍卖动态
 const recentAuctions = ref([])
 
+// 定义所有功能模块，每个模块包含标题、图标、需要的角色、里面的按钮等
 const entrySections = computed(() => [
   {
     key: 'asset',
@@ -304,7 +317,6 @@ const entrySections = computed(() => [
     title: '财务审核',
     icon: Wallet,
     roles: ['财务专员', '系统管理员'],
-    tag: '仅财务',
     items: [
       { label: '待审核', path: '/finance', query: { tab: 'pending' }, type: 'primary' },
       { label: '付款待审核', path: '/finance', query: { tab: 'payment' }, type: 'warning' }
@@ -323,20 +335,25 @@ const entrySections = computed(() => [
   }
 ])
 
+// 过滤功能模块，只显示当前角色有权限的
 const visibleEntrySections = computed(() => {
   return entrySections.value
     .filter((section) => !section.roles || userStore.hasAnyRole(...section.roles))
     .map((section) => {
+      // 过滤按钮，只显示当前角色有权限的按钮
       const items = section.items.filter((item) => !item.roles || userStore.hasAnyRole(...item.roles))
       return { ...section, items }
     })
     .filter((section) => section.items.length > 0)
 })
 
+// 如果只有一个模块，就占满整行
 const isSingleEntry = computed(() => visibleEntrySections.value.length === 1)
 
+// 根据角色生成待办事项列表
 const todoList = computed(() => {
   const list = []
+  // 资产专员/系统管理员：待审核资产
   if (userStore.hasAnyRole('资产专员', '系统管理员')) {
     list.push({
       label: '待审核资产',
@@ -346,6 +363,7 @@ const todoList = computed(() => {
       tagType: 'warning'
     })
   }
+  // 财务专员/系统管理员：待审核
   if (userStore.hasAnyRole('财务专员', '系统管理员')) {
     list.push({
       label: '待审核',
@@ -355,6 +373,7 @@ const todoList = computed(() => {
       tagType: 'warning'
     })
   }
+  // 财务专员/系统管理员：付款待审核
   if (userStore.hasAnyRole('财务专员', '系统管理员')) {
     list.push({
       label: '付款待审核',
@@ -364,6 +383,7 @@ const todoList = computed(() => {
       tagType: 'danger'
     })
   }
+  // 资产专员/系统管理员：待处置资产
   if (userStore.hasAnyRole('资产专员', '系统管理员')) {
     list.push({
       label: '待处置资产',
@@ -376,23 +396,29 @@ const todoList = computed(() => {
   return list
 })
 
+// 下面这些是格式化工具函数，把数据转成好看的显示格式
+
+// 时间格式化
 const formatTime = (time) => {
   if (!time) return '-'
   return dayjs(time).format('YYYY-MM-DD HH:mm:ss')
 }
 
+// 金额格式化，加千分位
 const formatAmount = (value) => {
   const number = Number(value)
   if (Number.isNaN(number)) return '-'
   return number.toLocaleString()
 }
 
+// 数字格式化，加千分位
 const formatNumber = (value) => {
   const number = Number(value)
   if (Number.isNaN(number)) return '-'
   return number.toLocaleString()
 }
 
+// 百分比格式化
 const formatRate = (value) => {
   const number = Number(value)
   if (Number.isNaN(number)) return '-'
@@ -400,12 +426,14 @@ const formatRate = (value) => {
   return `${percent.toFixed(2)}%`
 }
 
+// 待办数量格式化，加个"项"字
 const formatTodoCount = (value) => {
   const number = Number(value)
   if (Number.isNaN(number)) return '-'
   return `${number} 项`
 }
 
+// 状态颜色映射
 const getStatusType = (status) => {
   const statusMap = {
     '待审核': 'warning',
@@ -421,6 +449,7 @@ const getStatusType = (status) => {
   return statusMap[status] || 'info'
 }
 
+// 状态文字映射
 const getStatusText = (status) => {
   const statusMap = {
     'not_started': '未开始',
@@ -437,19 +466,23 @@ const getStatusText = (status) => {
   return statusMap[status] || status
 }
 
+// 获取拍卖开始时间，尝试多个字段名，兼容不同接口返回的数据格式
 const getAuctionStartTime = (row) => row.startTime || row.start_at || row.startDate || row.start || row.createdAt || ''
 
+// 按开始时间降序排序，最新的在前面
 const sortAuctionsByStartTimeDesc = (list) => {
   return list
     .slice()
     .sort((a, b) => new Date(getAuctionStartTime(b)).getTime() - new Date(getAuctionStartTime(a)).getTime())
 }
 
+// 取最新的5条拍卖数据
 const pickLatestFiveAuctions = (list) => {
   if (!Array.isArray(list)) return []
   return sortAuctionsByStartTimeDesc(list).slice(0, 5)
 }
 
+// 从接口获取最新的5条拍卖数据
 const fetchLatestFiveAuctions = async () => {
   const pageSize = 50
   const res = await getAuctions({ page: 1, pageSize })
@@ -460,11 +493,13 @@ const fetchLatestFiveAuctions = async () => {
   return pickLatestFiveAuctions(list)
 }
 
+// 加载员工的竞拍统计数据
 const loadMyBidSummary = async () => {
   if (!isEmployee.value) return
   bidStats.pendingConfirm = 0
   bidStats.pendingPayment = 0
   bidStats.ended = 0
+  // 1. 获取进行中的竞拍
   try {
     const res = await getAuctions({
       myAuctions: true,
@@ -478,6 +513,7 @@ const loadMyBidSummary = async () => {
     console.error('加载我的竞拍概览失败:', error)
   }
 
+  // 2. 获取已结束的竞拍数量
   try {
     const res = await getAuctions({
       myAuctions: true,
@@ -491,6 +527,7 @@ const loadMyBidSummary = async () => {
     console.error('Failed to load ended auctions count:', error)
   }
 
+  // 3. 获取中标的竞拍数量，以及待确认成交的数量
   try {
     const res = await getAuctions({
       myAuctions: true,
@@ -505,6 +542,7 @@ const loadMyBidSummary = async () => {
     console.error('加载待确认成交失败:', error)
   }
 
+  // 4. 获取待付款数量
   try {
     const res = await getMyPendingPaymentCount()
     bidStats.pendingPayment = Number(res.data) || 0
@@ -513,6 +551,7 @@ const loadMyBidSummary = async () => {
   }
 }
 
+// 加载财务的待办数据
 const loadFinancePendingPaymentTodo = async () => {
   if (!userStore.hasAnyRole('财务专员', '系统管理员')) return
   try {
@@ -528,6 +567,7 @@ const loadFinancePendingPaymentTodo = async () => {
   }
 }
 
+// 加载财务待审核数量
 const loadFinancePendingApprovalTodo = async () => {
   if (!userStore.hasAnyRole('财务专员', '系统管理员')) return
   try {
@@ -541,6 +581,7 @@ const loadFinancePendingApprovalTodo = async () => {
   }
 }
 
+// 加载资产专员待审核资产数量
 const loadPendingAssetTodo = async () => {
   if (!userStore.hasAnyRole('资产专员', '系统管理员')) return
   try {
@@ -555,6 +596,7 @@ const loadPendingAssetTodo = async () => {
   }
 }
 
+// 加载待处置资产数量
 const loadPendingDisposalTodo = async () => {
   if (!userStore.hasAnyRole('ASSET_SPECIALIST', 'asset_specialist', 'ADMIN', 'admin', 'SYSTEM_ADMIN', 'system_admin')) return
   try {
@@ -568,12 +610,15 @@ const loadPendingDisposalTodo = async () => {
   }
 }
 
+// 路由跳转函数，带query参数
 const goTo = (path, query = {}) => {
   router.push({ path, query })
 }
 
+// 页面加载时，一次性拉取所有需要的数据
 onMounted(async () => {
   try {
+    // 先获取仪表盘统计数据，里面有一些待办数量
     const statsData = await getDashboardStats()
     const data = statsData?.data || {}
     stats.monthDisposals = data.monthDisposals ?? data.disposedAssets ?? 0
@@ -587,12 +632,14 @@ onMounted(async () => {
     bidStats.ended = data.myBidsEnded ?? 0
     bidStats.wins = data.myBidsWins ?? 0
 
+    // 根据角色，分别加载各自的待办数据
     await loadMyBidSummary()
     await loadPendingAssetTodo()
     await loadFinancePendingApprovalTodo()
     await loadFinancePendingPaymentTodo()
     await loadPendingDisposalTodo()
 
+    // 加载最新的拍卖动态
     try {
       recentAuctions.value = await fetchLatestFiveAuctions()
     } catch (error) {

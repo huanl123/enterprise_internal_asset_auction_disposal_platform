@@ -21,6 +21,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * 交易单控制器
+ * 提供员工查询自己交易记录的接口：
+ * 查询我的交易单列表（支持按确认状态、付款状态筛选）、
+ * 查询待付款的交易单数量（用于首页提醒）等。
+ * 
+ * 注意：交易单的确认、付款、处置等操作分别由 AuctionController、FinanceController、DisposalController 提供。
+ */
 @RestController
 @RequestMapping("/api/transactions")
 @RequiredArgsConstructor

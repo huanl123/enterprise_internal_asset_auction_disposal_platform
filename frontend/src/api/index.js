@@ -1,20 +1,57 @@
-﻿import request from './request'
+﻿/**
+ * API 接口统一管理
+ * 集中定义所有后端 API 接口，便于维护和复用。
+ * 所有接口均通过 request 封装，自动处理 baseURL、拦截器、错误处理等。
+ * 
+ * API 模块：
+ * - User: 用户管理、登录注册
+ * - Department: 部门管理
+ * - Depreciation Rules: 折旧规则管理
+ * - Assets: 资产管理
+ * - Auctions: 拍卖管理
+ * - Finance: 财务审核
+ * - Disposal: 资产处置
+ * - Statistics: 统计查询
+ * - Employee Transactions: 员工交易单查询
+ */
+import request from './request'
 
-// User
+// ========== 用户管理 ==========
+// 登录信息 {username, password}
 export const login = (data) => request.post('/auth/login', data)
+
+// 注册信息
 export const register = (data) => request.post('/auth/register', data)
+
+// 获取当前用户信息
 export const getUserInfo = () => request.get('/auth/info')
+
+// 获取用户列表（分页），params: 查询参数
 export const getUsers = (params) => request.get('/users', { params })
+
+// 更新的资料信息
 export const updateProfile = (data) => request.put('/users/profile', data)
+
+// 创建用户（管理员），data: 用户信息
 export const createUser = (data) => request.post('/users', data)
+
+// 更新用户信息（管理员），id: 用户ID，data: 更新的用户信息
 export const updateUser = (id, data) => request.put(`/users/${id}`, data)
+
+// 删除用户（管理员），id: 用户ID
 export const deleteUser = (id) => request.delete(`/users/${id}`)
+
+// 切换用户状态（启用/禁用），id: 用户ID，status: 状态
 export const toggleUserStatus = (id, status) => request.put(
   `/users/${id}/status`,
   status,
   { headers: { 'Content-Type': 'application/json' } }
 )
+
+// 重置用户密码（管理员），id: 用户ID，newPassword: 新密码
 export const resetPassword = (id, newPassword) => request.put(`/users/${id}/password`, { newPassword })
+
+// 上传用户头像，file: 头像文件
 export const uploadAvatar = (file) => {
   const formData = new FormData()
   formData.append('file', file)
@@ -24,7 +61,7 @@ export const uploadAvatar = (file) => {
   })
 }
 
-// Department
+// ========== 部门管理 ==========
 export const getDepartments = () => request.get('/department/list')
 export const createDepartment = (data) => request.post('/department/create', data)
 export const updateDepartment = (data) => request.put('/department/update', data)
