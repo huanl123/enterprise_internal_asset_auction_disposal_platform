@@ -182,6 +182,9 @@ public class AuthServiceImpl implements AuthService {
         if (value.isEmpty()) {
             throw new RuntimeException("工号不能为空");
         }
+        if (value.length() > 16) {
+            throw new RuntimeException("工号长度不能超过16位");
+        }
         return value;
     }
 
@@ -192,6 +195,9 @@ public class AuthServiceImpl implements AuthService {
         String value = password;
         if (value.length() < 6) {
             throw new RuntimeException("密码长度至少6位");
+        }
+        if (value.length() > 16) {
+            throw new RuntimeException("密码长度不能超过16位");
         }
         return value;
     }

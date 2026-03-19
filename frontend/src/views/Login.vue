@@ -170,16 +170,26 @@ const registerForm = reactive({ // 注册表单数据
 
 // 登录表单验证规则
 const loginRules = {
-  username: [{ required: true, message: '请输入工号', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  username: [
+    { required: true, message: '请输入工号', trigger: 'blur' },
+    { max: 16, message: '工号长度不能超过16位', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { max: 16, message: '密码长度不能超过16位', trigger: 'blur' }
+  ]
 }
 
 // 注册表单验证规则（包含密码一致性校验、手机号格式校验）
 const registerRules = {
-  username: [{ required: true, message: '请输入工号', trigger: 'blur' }],
+  username: [
+    { required: true, message: '请输入工号', trigger: 'blur' },
+    { max: 16, message: '工号长度不能超过16位', trigger: 'blur' }
+  ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度至少6位', trigger: 'blur' }
+    { min: 6, message: '密码长度至少6位', trigger: 'blur' },
+    { max: 16, message: '密码长度不能超过16位', trigger: 'blur' }
   ],
   // 自定义验证器：检查两次密码是否一致
   confirmPassword: [
@@ -195,7 +205,10 @@ const registerRules = {
       trigger: 'blur'
     }
   ],
-  name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+  name: [
+    { required: true, message: '请输入姓名', trigger: 'blur' },
+    { max: 10, message: '姓名长度不能超过10位', trigger: 'blur' }
+  ],
   phone: [
     { required: true, message: '请输入联系方式', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }

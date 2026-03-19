@@ -13,7 +13,11 @@ public class AuctionScheduler {
 
     private final AuctionService auctionService;
 
-    // Every minute: update auction status and end auctions.
+    /**
+     * 拍卖状态定时检查任务
+     * 执行频率: 每分钟执行一次
+     * 功能: 更新拍卖活动状态，自动结束已到期的拍卖
+     */
     @Scheduled(fixedRate = 60_000)
     public void checkAuctions() {
         try {
@@ -24,7 +28,13 @@ public class AuctionScheduler {
         }
     }
 
-    // Every day at 02:00: expire confirmations past deadline.
+    /**
+     * 过期交易定时检查任务
+     * 执行时间: 每天凌晨2点执行
+     * 功能:
+     *   1. 检查并处理超时未确认成交的交易
+     *   2. 检查并处理超时未付款的交易
+     */
     @Scheduled(cron = "0 0 2 * * ?")
     public void checkExpiredTransactions() {
         try {

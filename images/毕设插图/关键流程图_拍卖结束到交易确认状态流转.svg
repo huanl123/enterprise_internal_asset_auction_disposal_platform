@@ -1,0 +1,104 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
+  <defs>
+    <style>
+      .title { font-weight: bold; fill: #111827; }
+      .sub { font-weight: normal; fill: #6B7280; }
+      .text { font-weight: normal; fill: #111827; }
+      .muted { fill: #6B7280; }
+      .box { fill: #FFFFFF; stroke: #111827; stroke-width: 1.6; rx: 14; ry: 14; }
+      .diamond { fill: #FFFFFF; stroke: #111827; stroke-width: 1.6; }
+      .line { stroke: #111827; stroke-width: 1.2; fill: none; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,3 L0,6 Z" fill="#111827"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1400" height="900" fill="#FFFFFF"/>
+  <text x="700" y="58" class="title" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun">关键流程图</text>
+  <text x="700" y="86" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun"><tspan font-size="10.5pt" font-family="SimSun">拍卖结束</tspan><tspan font-size="10.5pt" font-family="&quot;Times New Roman&quot;"> → </tspan><tspan font-size="10.5pt" font-family="SimSun">生成交易单（待确认）</tspan><tspan font-size="10.5pt" font-family="&quot;Times New Roman&quot;"> → </tspan><tspan font-size="10.5pt" font-family="SimSun">中标者确认成交（或超时失效）的状态流转</tspan></text>
+
+  <!-- Start -->
+  <circle cx="140" cy="170" r="14" fill="#111827"/>
+  <text x="140" y="202" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun">开始</text>
+
+  <!-- Step: Auction end -->
+  <rect x="220" y="135" width="320" height="70" class="box"/>
+  <text x="380" y="164" class="text" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun">拍卖到期结束（定时任务扫描）</text>
+  <text x="380" y="188" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="&quot;Times New Roman&quot;">Auction.status = ended</text>
+
+  <!-- Decision: has valid highest bid? -->
+  <polygon points="640,170 700,120 760,170 700,220" class="diamond"/>
+  <text x="700" y="164" class="text" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun">是否有</text>
+  <text x="700" y="186" class="text" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun">有效最高价？</text>
+  <text x="700" y="246" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun"><tspan font-size="10.5pt" font-family="SimSun">考虑：保留价</tspan><tspan font-size="10.5pt" font-family="&quot;Times New Roman&quot;">/</tspan><tspan font-size="10.5pt" font-family="SimSun">无人出价</tspan></text>
+
+  <!-- No winner branch -->
+  <rect x="600" y="280" width="360" height="88" class="box"/>
+  <text x="780" y="314" class="text" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun">流拍（无有效中标者）</text>
+  <text x="780" y="340" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun"><tspan font-size="10.5pt" font-family="&quot;Times New Roman&quot;">Asset.status = </tspan><tspan font-size="10.5pt" font-family="SimSun">待拍卖</tspan></text>
+
+  <!-- Winner branch: create tx pending -->
+  <rect x="860" y="120" width="460" height="120" class="box"/>
+  <text x="1090" y="156" class="text" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun">产生中标者并生成交易单（待确认）</text>
+  <text x="1090" y="182" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="&quot;Times New Roman&quot;">Transaction.confirmStatus = pending</text>
+  <text x="1090" y="206" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="&quot;Times New Roman&quot;">confirmDeadline = now + 24h</text>
+  <text x="1090" y="230" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun"><tspan font-size="10.5pt" font-family="&quot;Times New Roman&quot;">Asset.status = </tspan><tspan font-size="10.5pt" font-family="SimSun">待处置</tspan></text>
+
+  <!-- Decision: confirm within 24h -->
+  <polygon points="1090,340 1150,290 1210,340 1150,390" class="diamond"/>
+  <text x="1150" y="334" class="text" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun"><tspan font-size="10.5pt" font-family="&quot;Times New Roman&quot;">24h</tspan><tspan font-size="10.5pt" font-family="SimSun">内</tspan></text>
+  <text x="1150" y="356" class="text" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun">确认成交？</text>
+
+  <!-- Confirmed -->
+  <rect x="880" y="450" width="520" height="110" class="box"/>
+  <text x="1140" y="484" class="text" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun">确认成交成功</text>
+  <text x="1140" y="510" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="&quot;Times New Roman&quot;">Transaction.confirmStatus = confirmed</text>
+  <text x="1140" y="534" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun"><tspan font-size="10.5pt" font-family="&quot;Times New Roman&quot;">confirmTime = now</tspan><tspan font-size="10.5pt" font-family="SimSun">；</tspan><tspan font-size="10.5pt" font-family="&quot;Times New Roman&quot;">paymentDeadline = now + 48h</tspan><tspan font-size="10.5pt" font-family="SimSun">（重置）</tspan></text>
+  <text x="1140" y="558" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun">进入付款流程（后续由财务审核）</text>
+
+  <!-- Expired -->
+  <rect x="880" y="610" width="520" height="140" class="box"/>
+  <text x="1140" y="646" class="text" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun">超时未确认（自动失效）</text>
+  <text x="1140" y="672" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun"><tspan font-size="10.5pt" font-family="&quot;Times New Roman&quot;">Transaction.confirmStatus = expired</tspan><tspan font-size="10.5pt" font-family="SimSun">；</tspan><tspan font-size="10.5pt" font-family="&quot;Times New Roman&quot;">paymentStatus = expired</tspan></text>
+  <text x="1140" y="696" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun"><tspan font-size="10.5pt" font-family="&quot;Times New Roman&quot;">disposalStatus = cancelled</tspan><tspan font-size="10.5pt" font-family="SimSun">；</tspan><tspan font-size="10.5pt" font-family="&quot;Times New Roman&quot;">Asset.status = </tspan><tspan font-size="10.5pt" font-family="SimSun">待拍卖</tspan></text>
+  <text x="1140" y="720" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun"><tspan font-size="10.5pt" font-family="SimSun">中标者竞拍禁用：</tspan><tspan font-size="10.5pt" font-family="&quot;Times New Roman&quot;">3 </tspan><tspan font-size="10.5pt" font-family="SimSun">个月（违约处罚）</tspan></text>
+
+  <!-- End -->
+  <circle cx="140" cy="760" r="16" fill="none" stroke="#111827" stroke-width="1.6"/>
+  <circle cx="140" cy="760" r="9" fill="#111827"/>
+  <text x="140" y="792" class="sub" text-anchor="middle" xml:space="preserve" font-size="10.5pt" font-family="SimSun">结束</text>
+
+  <!-- Lines -->
+  <path d="M 154 170 L 220 170" class="line" marker-end="url(#arrow)"/>
+  <path d="M 540 170 L 640 170" class="line" marker-end="url(#arrow)"/>
+
+  <!-- decision to winner -->
+  <path d="M 760 170 L 860 170" class="line" marker-end="url(#arrow)"/>
+  <text x="820" y="154" class="sub" xml:space="preserve" font-size="10.5pt" font-family="SimSun">是</text>
+
+  <!-- decision to no winner -->
+  <path d="M 700 220 L 700 280" class="line" marker-end="url(#arrow)"/>
+  <text x="712" y="258" class="sub" xml:space="preserve" font-size="10.5pt" font-family="SimSun">否</text>
+
+  <!-- no winner to end -->
+  <path d="M 600 324 L 180 324 L 180 760 L 156 760" class="line" marker-end="url(#arrow)"/>
+
+  <!-- winner to confirm decision -->
+  <path d="M 1090 240 L 1090 290" class="line" marker-end="url(#arrow)"/>
+
+  <!-- confirm yes to confirmed -->
+  <path d="M 1090 340 L 980 340 L 980 450" class="line" marker-end="url(#arrow)"/>
+  <text x="995" y="326" class="sub" xml:space="preserve" font-size="10.5pt" font-family="SimSun">是</text>
+
+  <!-- confirm no to expired -->
+  <path d="M 1150 390 L 1150 610" class="line" marker-end="url(#arrow)"/>
+  <text x="1162" y="420" class="sub" xml:space="preserve" font-size="10.5pt" font-family="SimSun">否</text>
+
+  <!-- confirmed to end -->
+  <path d="M 880 505 L 220 505 L 220 760 L 156 760" class="line" marker-end="url(#arrow)"/>
+
+  <!-- expired to end -->
+  <path d="M 880 680 L 260 680 L 260 760 L 156 760" class="line" marker-end="url(#arrow)"/>
+</svg>
