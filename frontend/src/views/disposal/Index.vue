@@ -129,7 +129,7 @@
       <el-divider />
 
       <el-form :model="confirmForm" label-width="120px">
-        <el-form-item label="处置备注" required>
+        <el-form-item label="处置备注">
           <el-input
             v-model="confirmForm.remark"
             type="textarea"
@@ -398,11 +398,6 @@ const handlePreview = (file) => {
 }
 
 const handleSubmitConfirm = async () => {
-  if (!confirmForm.remark) {
-    ElMessage.warning('请输入处置备注')
-    return
-  }
-
   const voucherFile = confirmVoucherFile.value || confirmFileList.value?.[0]?.raw || null
   if (!voucherFile) {
     ElMessage.warning('请选择处置凭证')
@@ -420,6 +415,8 @@ const handleSubmitConfirm = async () => {
     ElMessage.success('处置确认成功')
     confirmDialogVisible.value = false
     loadPendingList()
+    loadCompletedList()
+    loadHistoryList()
   } catch (error) {
     console.error('确认处置失败:', error)
   }

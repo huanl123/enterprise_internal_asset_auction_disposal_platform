@@ -100,7 +100,7 @@
                   确认收款
                 </el-button>
                 <el-button type="danger" size="small" @click="handleRejectPayment(row)">
-                  拒绝
+                  不通过
                 </el-button>
               </template>
             </el-table-column>
@@ -556,22 +556,23 @@ const handleConfirmPayment = (row) => {
 
 const handleRejectPayment = async (row) => {
   try {
-    await ElMessageBox.prompt('请输入拒绝原因', '拒绝付款', {
+    const { value: reason } = await ElMessageBox.prompt('请输入不通过原因', '付款审核不通过', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
-      inputPattern: /.+/,
-      inputErrorMessage: '请输入拒绝原因'
+      inputPattern: /^(?!\s*$).+/,
+      inputErrorMessage: '请输入不通过原因'
     })
-    const reason = await ElMessageBox.prompt.result
+
     await rejectPayment({
       transactionId: row.id,
-      reason
+      reason: reason.trim()
     })
-    ElMessage.success('已拒绝')
+
+    ElMessage.success('审核已设为不通过')
     loadPaymentList()
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('拒绝失败:', error)
+      console.error('付款审核不通过处理失败:', error)
     }
   }
 }

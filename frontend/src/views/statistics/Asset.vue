@@ -2,7 +2,7 @@
   <div class="asset-statistics">
     <el-card>
       <template #header>
-        <span>资产处置统计</span>
+        <span>{{ pageTitle }}</span>
       </template>
 
       <el-form :inline="true" class="query-form">
@@ -39,7 +39,7 @@
 
       <el-row :gutter="20" class="summary-row">
         <el-col :xs="12" :md="8">
-          <el-statistic title="拍卖结束数(含流拍)" :value="summary.totalCount" />
+          <el-statistic title="拍卖结束数" :value="summary.totalCount" />
         </el-col>
         <el-col :xs="12" :md="8">
           <el-statistic title="成交金额" :value="summary.totalAmount" :precision="2" prefix="¥" />
@@ -59,7 +59,7 @@
       </el-card>
 
       <el-divider />
-      <h3>部门对比（{{ currentPointLabel }}）</h3>
+      <h3>部门处置汇总（{{ currentPointLabel }}）</h3>
       <el-table v-loading="loading" :data="departmentRows" stripe border>
         <el-table-column prop="departmentName" label="部门" min-width="180" />
         <el-table-column prop="disposalCount" label="处置数量" width="160" align="right" />
@@ -78,7 +78,9 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import * as echarts from 'echarts'
 import { getDisposalTrendStatistics, getDepartmentDisposalComparison } from '@/api'
+import { useUserStore } from '@/stores/user'
 
+const userStore = useUserStore()
 const loading = ref(false)
 const period = ref('month')
 const selectedPoint = ref('')
@@ -93,6 +95,18 @@ const summary = reactive({
   totalAmount: 0,
   failureRate: 0
 })
+
+const isScopedDepartmentView = computed(() => !userStore.hasAnyRole('系统管理员'))
+const scopedDepartmentName = computed(() => {
+  const directName = userStore.user?.departmentName
+  if (directName && String(directName).trim()) {
+    return String(directName).trim()
+  }
+  return '本部门'
+})
+const pageTitle = computed(() => (
+  isScopedDepartmentView.value ? `资产处置统计 · ${scopedDepartmentName.value}` : '资产处置统计'
+))
 
 const periodText = computed(() => {
   if (period.value === 'quarter') return '按季'

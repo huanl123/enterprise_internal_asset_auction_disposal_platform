@@ -272,7 +272,10 @@ public class DisposalServiceImpl implements DisposalService {
         if (isAdminRole(normalized)) {
             return ArchiveAccessScope.ALL;
         }
-        if (isSpecialistRole(normalized)) {
+        if (isAssetSpecialistRole(normalized)) {
+            return ArchiveAccessScope.ALL;
+        }
+        if (isFinanceSpecialistRole(normalized)) {
             return ArchiveAccessScope.DEPARTMENT_RELATED;
         }
         if (isOrdinaryUserRole(normalized)) {
@@ -303,6 +306,18 @@ public class DisposalServiceImpl implements DisposalService {
                 || "EMPLOYEE".equalsIgnoreCase(role)
                 || "employee".equalsIgnoreCase(role)
                 || "普通员工".equals(role);
+    }
+
+    private boolean isAssetSpecialistRole(String role) {
+        return "ASSET_SPECIALIST".equalsIgnoreCase(role)
+                || "asset_specialist".equalsIgnoreCase(role)
+                || "璧勪骇涓撳憳".equals(role);
+    }
+
+    private boolean isFinanceSpecialistRole(String role) {
+        return "FINANCE_SPECIALIST".equalsIgnoreCase(role)
+                || "finance_specialist".equalsIgnoreCase(role)
+                || "璐㈠姟涓撳憳".equals(role);
     }
 
     private enum ArchiveAccessScope {

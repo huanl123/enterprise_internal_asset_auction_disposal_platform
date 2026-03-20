@@ -282,7 +282,17 @@ public class FinanceServiceImpl implements FinanceService {
             recordHistory(transaction.getAssetId(), operatorId, "确认收款", content);
         } else {
             // 审核不通过
+            if (remark == null || remark.trim().isEmpty()) {
+                throw new RuntimeException("审核不通过时必须填写原因");
+            }
+
             transaction.setPaymentStatus("rejected");
+            if (transaction.getDisposalStatus() != null) {
+                String disposalStatus = transaction.getDisposalStatus().trim().toLowerCase();
+                if ("pending".equals(disposalStatus)) {
+                    transaction.setDisposalStatus("cancelled");
+                }
+            }
             transaction.setPaymentRemark(remark);
             transaction.setUpdateTime(now);
             transactionRepository.save(transaction);
@@ -295,16 +305,6 @@ public class FinanceServiceImpl implements FinanceService {
                     assetRepository.save(asset);
                 });
             }
-
-            // 拍卖状态更新（可选）
-            if (transaction.getAuctionId() != null) {
-                auctionRepository.findById(transaction.getAuctionId()).ifPresent(auction -> {
-                    auction.setStatus("已取消");
-                    auction.setUpdateTime(now);
-                    auctionRepository.save(auction);
-                });
-            }
-
             // 违约惩罚：限制中标者 3 个月竞拍资格
             if (transaction.getWinnerId() != null) {
                 userRepository.findById(transaction.getWinnerId()).ifPresent(user -> {
