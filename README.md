@@ -109,55 +109,55 @@ npm run dev
 ## 系统功能页面展示
 
 ### 部门管理
-<img src="https://img.erpweb.eu.org/imgs/2026/03/f49f1f2bd378e98d.png" 
+<img src="images/部门管理.png" 
      width="80%" 
      style="border-radius: 6px; display: block; margin: 16px auto;" 
      alt="部门管理页面">
 
 ### 财务审核
-<img src="https://i.111666.best/image/6Kxuim1oDEYRO0uTmom75a.png" 
+<img src="images/财务审核.png" 
      width="80%" 
      style="border-radius: 6px; display: block; margin: 16px auto;" 
      alt="财务审核页面">
 
 ### 创建拍卖活动
-<img src="https://i.111666.best/image/EYL8dc3RdjO1bHXrU6Zsht.png" 
+<img src="images/创建拍卖活动页面.png" 
      width="80%" 
      style="border-radius: 6px; display: block; margin: 16px auto;" 
      alt="创建拍卖活动页面">
 
 ### 管理员首页
-<img src="https://i.111666.best/image/na8VCo4wA1gz6JpEYMr0sY.png" 
+<img src="images/管理员首页.png" 
      width="80%" 
      style="border-radius: 6px; display: block; margin: 16px auto;" 
      alt="管理员首页">
 
 ### 登录页面
-<img src="https://i.111666.best/image/PiyPeaL0BraZ04iTu0K7et.png" 
+<img src="images/登录页面.png" 
      width="80%" 
      style="border-radius: 6px; display: block; margin: 16px auto;" 
      alt="登录页面">
 
 ### 个人中心
-<img src="https://i.111666.best/image/Pce8yxi7cRufTHVF71ry0k.png" 
+<img src="images/个人中心.png" 
      width="80%" 
      style="border-radius: 6px; display: block; margin: 16px auto;" 
      alt="个人中心页面">
 
 ### 拍卖活动页面
-<img src="https://i.111666.best/image/jLxXnxfffxjpoiA26DI9f.png" 
+<img src="images/拍卖活动页面.png" 
      width="80%" 
      style="border-radius: 6px; display: block; margin: 16px auto;" 
      alt="拍卖活动页面">
 
 ### 资产管理页面
-<img src="https://i.111666.best/image/EbMYROtzPmtRjvrgU1h1DY.png" 
+<img src="images/资产管理.png" 
      width="80%" 
      style="border-radius: 6px; display: block; margin: 16px auto;" 
      alt="资产管理页面">
 
 ### 资产统计页面
-<img src="https://i.111666.best/image/JRFj8axOvAxr2wwcMrrdmW.png" 
+<img src="images/资产统计页面.png" 
      width="80%" 
      style="border-radius: 6px; display: block; margin: 16px auto;" 
      alt="资产统计页面">
