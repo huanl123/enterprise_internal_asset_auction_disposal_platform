@@ -10,12 +10,13 @@
 ## 运行前准备
 
 1. 安装环境
+
    - JDK 17
    - Maven 3.8+
    - Node.js 18+（建议 18/20 LTS）
    - MySQL 8.x
-
 2. 准备数据库
+
    - 创建数据库：`waidp_springboot_master`
    - 初始化表结构与基础数据：
      - 如果你有项目对应的 SQL 初始化脚本，请先导入；
@@ -93,14 +94,71 @@ npm run dev
 ## 常见问题
 
 1) 前端能打开但接口 404/500？
+
 - 检查后端是否已启动、端口是否一致；
 - 检查 `frontend/vite.config.js` 的代理端口；
 - 检查 `backend/src/main/resources/application.yml` 的数据库连接是否正确。
 
 2) 数据库没有表导致启动报错？
+
 - 需要导入项目初始化 SQL（推荐），或临时把 `ddl-auto` 改为 `update/create` 让 JPA 自动建表（不建议用于生产/最终提交）。
 
 ## License
 
 毕业设计用途学习项目。
+## 系统功能页面展示
+
+### 部门管理
+<img src="https://img.erpweb.eu.org/imgs/2026/03/f49f1f2bd378e98d.png" 
+     width="80%" 
+     style="border-radius: 6px; display: block; margin: 16px auto;" 
+     alt="部门管理页面">
+
+### 财务审核
+<img src="https://i.111666.best/image/6Kxuim1oDEYRO0uTmom75a.png" 
+     width="80%" 
+     style="border-radius: 6px; display: block; margin: 16px auto;" 
+     alt="财务审核页面">
+
+### 创建拍卖活动
+<img src="https://i.111666.best/image/EYL8dc3RdjO1bHXrU6Zsht.png" 
+     width="80%" 
+     style="border-radius: 6px; display: block; margin: 16px auto;" 
+     alt="创建拍卖活动页面">
+
+### 管理员首页
+<img src="https://i.111666.best/image/na8VCo4wA1gz6JpEYMr0sY.png" 
+     width="80%" 
+     style="border-radius: 6px; display: block; margin: 16px auto;" 
+     alt="管理员首页">
+
+### 登录页面
+<img src="https://i.111666.best/image/PiyPeaL0BraZ04iTu0K7et.png" 
+     width="80%" 
+     style="border-radius: 6px; display: block; margin: 16px auto;" 
+     alt="登录页面">
+
+### 个人中心
+<img src="https://i.111666.best/image/Pce8yxi7cRufTHVF71ry0k.png" 
+     width="80%" 
+     style="border-radius: 6px; display: block; margin: 16px auto;" 
+     alt="个人中心页面">
+
+### 拍卖活动页面
+<img src="https://i.111666.best/image/jLxXnxfffxjpoiA26DI9f.png" 
+     width="80%" 
+     style="border-radius: 6px; display: block; margin: 16px auto;" 
+     alt="拍卖活动页面">
+
+### 资产管理页面
+<img src="https://i.111666.best/image/EbMYROtzPmtRjvrgU1h1DY.png" 
+     width="80%" 
+     style="border-radius: 6px; display: block; margin: 16px auto;" 
+     alt="资产管理页面">
+
+### 资产统计页面
+<img src="https://i.111666.best/image/JRFj8axOvAxr2wwcMrrdmW.png" 
+     width="80%" 
+     style="border-radius: 6px; display: block; margin: 16px auto;" 
+     alt="资产统计页面">
 
