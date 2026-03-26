@@ -24,8 +24,6 @@
 
 ## 配置说明（重要）
 
-出于安全考虑，仓库默认忽略 `backend/src/main/resources/application.yml`（避免把数据库密码提交到 GitHub）。
-
 请按以下方式创建本地配置：
 
 1. 复制示例文件：
@@ -73,14 +71,14 @@ npm run dev
 
 ## 默认账号
 
-后端启动后会自动初始化系统管理员账号（若不存在）：
+后端启动后会自动初始化系统管理员账号：
 
 - 用户名：`admin`
 - 密码：`admin123`
 
 初始化逻辑见：`backend/src/main/java/com/waidp/config/DataInitializer.java`
 
-## 业务流程（对应 毕设需求.txt）
+## 业务流程
 
 - 资产创建 → 自动定价 → 状态“待审核”
 - 财务审核通过（可设置保留价）→ 状态“待拍卖”
