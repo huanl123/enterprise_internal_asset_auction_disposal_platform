@@ -232,16 +232,20 @@ public class FinanceServiceImpl implements FinanceService {
 
     @Override
     @Transactional
-    public void reviewPayment(Long transactionId, boolean passed, MultipartFile voucher, String voucherUrl, String remark, Long operatorId) {
+    public void reviewPayment(Long transactionId, boolean passed,
+                              MultipartFile voucher, String voucherUrl,
+                              String remark, Long operatorId) {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("交易单不存在"));
 
-        String confirmStatus = Optional.ofNullable(transaction.getConfirmStatus()).orElse("").trim().toLowerCase();
+        String confirmStatus = Optional.ofNullable(transaction.getConfirmStatus()).
+                orElse("").trim().toLowerCase();
         if (!"confirmed".equals(confirmStatus)) {
             throw new RuntimeException("交易单状态不允许审核");
         }
 
-        String paymentStatus = Optional.ofNullable(transaction.getPaymentStatus()).orElse("").trim().toLowerCase();
+        String paymentStatus = Optional.ofNullable(transaction.getPaymentStatus()).
+                orElse("").trim().toLowerCase();
         if (!"pending".equals(paymentStatus)) {
             throw new RuntimeException("交易单已审核过");
         }
@@ -263,7 +267,8 @@ public class FinanceServiceImpl implements FinanceService {
                 hasNewVoucher = true;
             }
             String existingVoucher = transaction.getPaymentVoucher();
-            if (!hasNewVoucher && (existingVoucher == null || existingVoucher.trim().isEmpty())) {
+            if (!hasNewVoucher && (existingVoucher == null || existingVoucher.
+                    trim().isEmpty())) {
                 throw new RuntimeException("请上传付款凭证");
             }
             if (hasNewVoucher) {

@@ -1,15 +1,20 @@
 package com.waidp.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
-/**
- * 用户实体类
- * 管理系统用户的基本信息和权限，包括员工、管理员、财务专员、资产专员等角色。
- * 支持用户状态管理、竞拍权限控制等功能。
- */
 @Data
 @Entity
 @Table(name = "user")
@@ -17,53 +22,55 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;//主键ID
+    private Long id;
 
     @Column(nullable = false, unique = true, length = 50)
-    private String username;//用户名
+    private String username;
 
     @Column(nullable = false)
-    private String password;//密码
+    private String password;
 
     @Column(length = 100)
-    private String email;//邮箱
+    private String email;
 
     @Column(length = 20)
-    private String phone;//电话号码
+    private String phone;
 
     @Column(name = "real_name", length = 50)
-    private String realName;//真实姓名
+    private String realName;
 
     @Column(name = "avatar", length = 255)
-    private String avatar;//头像
+    private String avatar;
 
     @Column(name = "department_id", insertable = false, updatable = false)
-    private Long departmentId;//所属部门ID
+    private Long departmentId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id")
     @JsonBackReference
-    private Department department;//所属部门对象
+    private Department department;
 
     @Column(nullable = false, length = 20)
-    private String role;//用户角色
+    private String role;
 
     @Column(nullable = false)
-    private Boolean status = true;//用户状态
+    private Boolean status = true;
+
+    @Column(name = "token_version", nullable = false)
+    private Integer tokenVersion = 0;
 
     @Column(name = "bid_ban_until")
-    private LocalDateTime bidBanUntil;//竞拍禁用截止时间
+    private LocalDateTime bidBanUntil;
 
     @Column(name = "create_time")
-    private LocalDateTime createTime;//创建时间
+    private LocalDateTime createTime;
 
     @Column(name = "update_time")
-    private LocalDateTime updateTime;//更新时间
+    private LocalDateTime updateTime;
 
     @Transient
-    private String departmentName;//部门名称
+    private String departmentName;
 
-    // 为了向后兼容，添加 getName/setName 方法，映射到 realName
     public String getName() {
         return realName;
     }
@@ -72,11 +79,6 @@ public class User {
         this.realName = name;
     }
 
-    /**
-     * 获取中文角色名
-     * @return 角色的中文显示名称
-     */
-    // 获取中文角色名
     public String getRoleDisplayName() {
         return switch (role) {
             case "ADMIN", "SYSTEM_ADMIN" -> "系统管理员";

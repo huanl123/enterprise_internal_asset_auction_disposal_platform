@@ -239,7 +239,7 @@ console.log('3. 用户角色:', userStore.user?.role)
 console.log('4. 用户角色类型:', typeof userStore.user?.role)
 console.log('5. hasAnyRole("系统管理员"):', userStore.hasAnyRole('系统管理员'))
 console.log('6. hasRole("系统管理员"):', userStore.hasRole('系统管理员'))
-console.log('7. localStorage user:', localStorage.getItem('user'))
+console.log('7. sessionStorage user:', sessionStorage.getItem('user'))
 console.log('========================================')
 
 const isCollapse = ref(false)

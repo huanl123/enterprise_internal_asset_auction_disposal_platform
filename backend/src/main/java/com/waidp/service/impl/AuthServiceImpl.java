@@ -13,10 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
-/**
- * 认证服务实现
- */
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -36,16 +34,15 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByUsernameNormalized(normalizedUsername)
                 .orElseThrow(() -> new RuntimeException("用户名或密码错误"));
 
-        if (!user.getStatus()) {
+        if (!Boolean.TRUE.equals(user.getStatus())) {
             throw new RuntimeException("该账号已被管理员禁用，请联系管理员处理。");
         }
 
-        // 使用 PasswordEncoder 验证密码
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new RuntimeException("用户名或密码错误");
         }
 
-        return jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
+        return jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole(), user.getTokenVersion());
     }
 
     @Override
@@ -60,30 +57,25 @@ public class AuthServiceImpl implements AuthService {
         String normalizedName = normalizeName(user.getName());
         String normalizedPhone = normalizePhone(user.getPhone());
 
-        // 检查用户名是否已存在
         if (userRepository.existsByUsernameNormalized(normalizedUsername)) {
             throw new RuntimeException("该工号已被使用，请更换工号或直接登录。");
         }
 
-        // 强制验证部门ID不能为空
         if (user.getDepartmentId() == null) {
             throw new RuntimeException("部门不能为空，请选择所属部门");
         }
 
-        // 验证部门是否存在
         Department department = departmentRepository.findById(user.getDepartmentId())
                 .orElseThrow(() -> new RuntimeException("选择的部门不存在"));
 
-        // 注册入口固定为普通员工，禁止通过请求体越权设置角色
         user.setRole("NORMAL_USER");
         user.setUsername(normalizedUsername);
         user.setPassword(normalizedPassword);
         user.setName(normalizedName);
         user.setPhone(normalizedPhone);
-
-        // 编码密码
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setStatus(true);
+        user.setTokenVersion(0);
         user.setCreateTime(LocalDateTime.now());
         user.setUpdateTime(LocalDateTime.now());
         user.setDepartment(department);
@@ -111,8 +103,7 @@ public class AuthServiceImpl implements AuthService {
 
         Department department = null;
         if (user.getDepartmentId() != null) {
-            department = departmentRepository.findById(user.getDepartmentId())
-                    .orElse(null);
+            department = departmentRepository.findById(user.getDepartmentId()).orElse(null);
         }
 
         return new UserInfo(
@@ -135,7 +126,6 @@ public class AuthServiceImpl implements AuthService {
         User existingUser = userRepository.findById(user.getId())
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
 
-        // 只更新允许修改的字段
         existingUser.setName(user.getName());
         existingUser.setPhone(user.getPhone());
         existingUser.setUpdateTime(LocalDateTime.now());
@@ -149,6 +139,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
         user.setStatus(status);
+        user.setTokenVersion(nextTokenVersion(user));
         user.setUpdateTime(LocalDateTime.now());
         userRepository.save(user);
     }
@@ -158,15 +149,28 @@ public class AuthServiceImpl implements AuthService {
     public void resetPassword(Long userId, String newPassword) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
-        // 使用 PasswordEncoder 编码新密码
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setTokenVersion(nextTokenVersion(user));
         user.setUpdateTime(LocalDateTime.now());
         userRepository.save(user);
     }
 
     @Override
     public boolean validateToken(String token) {
-        return jwtUtil.validateToken(token);
+        if (!jwtUtil.validateToken(token)) {
+            return false;
+        }
+
+        Long userId = jwtUtil.getUserIdFromToken(token);
+        Integer tokenVersion = jwtUtil.getTokenVersionFromToken(token);
+        if (userId == null || tokenVersion == null) {
+            return false;
+        }
+
+        return userRepository.findById(userId)
+                .filter(user -> Boolean.TRUE.equals(user.getStatus()))
+                .map(user -> Objects.equals(user.getTokenVersion(), tokenVersion))
+                .orElse(false);
     }
 
     @Override
@@ -222,8 +226,12 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("联系方式不能为空");
         }
         if (!value.matches("^1[3-9]\\d{9}$")) {
-            throw new RuntimeException("请输入正确的手机号码");
+            throw new RuntimeException("请输入正确的手机号");
         }
         return value;
+    }
+
+    private int nextTokenVersion(User user) {
+        return (user.getTokenVersion() == null ? 0 : user.getTokenVersion()) + 1;
     }
 }

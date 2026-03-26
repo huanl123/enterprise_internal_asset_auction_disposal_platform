@@ -15,15 +15,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Objects;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * 用户服务实现
- */
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
@@ -34,7 +31,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Page<User> getUsers(String username, String name, String role, Long departmentId,
-                                Boolean status, Pageable pageable) {
+                               Boolean status, Pageable pageable) {
         String normalizedRole = (role == null || role.trim().isEmpty()) ? null : normalizeRoleCode(role);
         Page<User> userPage = userRepository.searchUsers(username, name, normalizedRole, departmentId, status, pageable);
         List<User> users = userPage.getContent();
@@ -86,24 +83,22 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void createUser(User user) {
-        // 检查用户名是否已存在
         if (userRepository.existsByUsername(user.getUsername())) {
             throw new RuntimeException("该工号已被使用，请更换工号或直接登录。");
         }
 
-        // 强制验证部门ID不能为空
         if (user.getDepartmentId() == null) {
             throw new RuntimeException("部门不能为空，请选择所属部门");
         }
 
-        // 验证部门是否存在
         Department department = departmentRepository.findById(user.getDepartmentId())
                 .orElseThrow(() -> new RuntimeException("选择的部门不存在"));
 
-        // 加密密码
+        validatePassword(user.getPassword());
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setRole(normalizeRoleCode(user.getRole()));
         user.setStatus(true);
+        user.setTokenVersion(0);
         user.setCreateTime(LocalDateTime.now());
         user.setUpdateTime(LocalDateTime.now());
         user.setDepartment(department);
@@ -117,12 +112,15 @@ public class UserServiceImpl implements UserService {
         User existing = userRepository.findById(user.getId())
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
 
-        // 只更新允许修改的字段
         existing.setName(user.getName());
         existing.setPhone(user.getPhone());
-        existing.setRole(normalizeRoleCode(user.getRole()));
 
-        // 如果部门ID改变，更新部门
+        String newRole = normalizeRoleCode(user.getRole());
+        if (!Objects.equals(existing.getRole(), newRole)) {
+            existing.setTokenVersion(nextTokenVersion(existing));
+        }
+        existing.setRole(newRole);
+
         if (user.getDepartmentId() != null && !user.getDepartmentId().equals(existing.getDepartmentId())) {
             Department department = departmentRepository.findById(user.getDepartmentId())
                     .orElseThrow(() -> new RuntimeException("部门不存在"));
@@ -140,12 +138,10 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
 
-        // 不允许删除系统管理员
         if ("ROLE_admin".equals(user.getRole()) || "ROLE_system_admin".equals(user.getRole())) {
             throw new RuntimeException("不允许删除系统管理员账号");
         }
 
-        // 检查用户是否有未完成的交易
         if (userHasActiveTransactions(id)) {
             throw new RuntimeException("该用户有未完成的交易，无法删除");
         }
@@ -159,12 +155,12 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
 
-        // 不允许禁用系统管理员
         if (!status && ("ROLE_admin".equals(user.getRole()) || "ROLE_system_admin".equals(user.getRole()))) {
             throw new RuntimeException("不允许禁用系统管理员账号");
         }
 
         user.setStatus(status);
+        user.setTokenVersion(nextTokenVersion(user));
         user.setUpdateTime(LocalDateTime.now());
         userRepository.save(user);
     }
@@ -175,7 +171,9 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
 
+        validatePassword(newPassword);
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setTokenVersion(nextTokenVersion(user));
         user.setUpdateTime(LocalDateTime.now());
         userRepository.save(user);
     }
@@ -186,7 +184,6 @@ public class UserServiceImpl implements UserService {
         User existing = userRepository.findById(user.getId())
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
 
-        // 普通用户只能修改姓名、电话、头像
         existing.setName(user.getName());
         existing.setPhone(user.getPhone());
         if (user.getAvatar() != null) {
@@ -203,23 +200,18 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
 
-        // 验证旧密码
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
             throw new RuntimeException("原密码错误");
         }
 
-        // 更新密码
+        validatePassword(newPassword);
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setTokenVersion(nextTokenVersion(user));
         user.setUpdateTime(LocalDateTime.now());
         userRepository.save(user);
     }
 
-    /**
-     * 检查用户是否有未完成的交易
-     */
     private boolean userHasActiveTransactions(Long userId) {
-        // 这里需要实现检查逻辑
-        // 可以查询Transaction表中该用户是否有状态为pending或confirmed的交易
         return false;
     }
 
@@ -236,5 +228,21 @@ public class UserServiceImpl implements UserService {
             case "employee", "normal_user", "user", "普通员工" -> "NORMAL_USER";
             default -> throw new RuntimeException("无效角色: " + role);
         };
+    }
+
+    private int nextTokenVersion(User user) {
+        return (user.getTokenVersion() == null ? 0 : user.getTokenVersion()) + 1;
+    }
+
+    private void validatePassword(String password) {
+        if (password == null || password.trim().isEmpty()) {
+            throw new RuntimeException("密码不能为空");
+        }
+        if (password.length() < 6) {
+            throw new RuntimeException("密码长度至少6位");
+        }
+        if (password.length() > 16) {
+            throw new RuntimeException("密码长度不能超过16位");
+        }
     }
 }

@@ -2,24 +2,46 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const useUserStore = defineStore('user', () => {
-  const token = ref(localStorage.getItem('token') || '')
-  const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
+  const storage = window.sessionStorage
+  const legacyStorage = window.localStorage
+
+  const migrateLegacyAuthState = () => {
+    const legacyToken = legacyStorage.getItem('token')
+    const legacyUser = legacyStorage.getItem('user')
+
+    if (!storage.getItem('token') && legacyToken) {
+      storage.setItem('token', legacyToken)
+    }
+    if (!storage.getItem('user') && legacyUser) {
+      storage.setItem('user', legacyUser)
+    }
+
+    legacyStorage.removeItem('token')
+    legacyStorage.removeItem('user')
+  }
+
+  migrateLegacyAuthState()
+
+  const token = ref(storage.getItem('token') || '')
+  const user = ref(JSON.parse(storage.getItem('user') || 'null'))
 
   const setToken = (newToken) => {
     token.value = newToken
-    localStorage.setItem('token', newToken)
+    storage.setItem('token', newToken)
   }
 
   const setUser = (userData) => {
     user.value = userData
-    localStorage.setItem('user', JSON.stringify(userData))
+    storage.setItem('user', JSON.stringify(userData))
   }
 
   const logout = () => {
     token.value = ''
     user.value = null
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    storage.removeItem('token')
+    storage.removeItem('user')
+    legacyStorage.removeItem('token')
+    legacyStorage.removeItem('user')
   }
 
 const hasRole = (role) => {

@@ -1,5 +1,7 @@
 package com.waidp.config;
 
+import com.waidp.entity.User;
+import com.waidp.repository.UserRepository;
 import com.waidp.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,14 +18,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-/**
- * JWT 认证过滤器
- */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
     private final UserDetailsService userDetailsService;
 
     @Override
@@ -32,27 +32,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
 
-        // 从请求头中获取 Token
         String token = request.getHeader("Authorization");
         if (token != null && token.startsWith("Bearer ")) {
             token = token.substring(7);
 
-            // 验证 Token
             if (jwtUtil.validateToken(token)) {
-                String username = jwtUtil.getUsernameFromToken(token);
+                Long userId = jwtUtil.getUserIdFromToken(token);
+                Integer tokenVersion = jwtUtil.getTokenVersionFromToken(token);
+                User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
 
-                // 从UserDetailsService加载用户详细信息，包括权限
+                if (user == null || tokenVersion == null || !Boolean.TRUE.equals(user.getStatus())
+                        || !tokenVersion.equals(user.getTokenVersion())) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                String username = user.getUsername();
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                    if (!userDetails.isAccountNonLocked() || !userDetails.isEnabled()) {
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
 
-                    // 创建认证对象，包含用户权限
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-
-                    // 设置认证详情
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                    // 设置到 Security 上下文
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
             }

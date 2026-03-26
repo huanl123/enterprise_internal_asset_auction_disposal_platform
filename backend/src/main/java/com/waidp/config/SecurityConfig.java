@@ -19,19 +19,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-/**
- * Spring Security 安全配置类
- * 配置系统的安全策略，包括：
- * JWT 认证过滤器配置、请求属性过滤器（从JWT中提取userId放入request）、
- * URL 权限控制规则、角色权限控制、CORS 跨域配置、无状态会话管理等。
- * 
- * 权限说明：
- * 无需认证：登录、注册、公开统计数据、文件访问等
- * 需要认证：查询个人信息、参与竞拍、统计数据等
- * 资产专员权限：创建拍卖、资产管理、处置资产
- * 财务专员权限：财务审核、付款确认
- * 管理员权限：用户管理、部门管理等
- */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -61,12 +48,12 @@ public class SecurityConfig {
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter(jwtUtil, userDetailsService());
+        return new JwtAuthenticationFilter(jwtUtil, userRepository, userDetailsService());
     }
 
     @Bean
     public RequestAttributeFilter requestAttributeFilter() {
-        return new RequestAttributeFilter(jwtUtil);
+        return new RequestAttributeFilter(jwtUtil, userRepository);
     }
 
     @Bean
@@ -125,4 +112,3 @@ public class SecurityConfig {
         return http.build();
     }
 }
-

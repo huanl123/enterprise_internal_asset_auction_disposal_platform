@@ -1,9 +1,10 @@
 package com.waidp.config;
 
+import com.waidp.entity.User;
+import com.waidp.repository.UserRepository;
 import com.waidp.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -12,36 +13,31 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-/**
- * 请求属性过滤器 - 从JWT中提取用户信息并设置为request属性
- */
 @Component
 @RequiredArgsConstructor
 public class RequestAttributeFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        
+
         String token = request.getHeader("Authorization");
         if (token != null && token.startsWith("Bearer ")) {
             token = token.substring(7);
 
             if (jwtUtil.validateToken(token)) {
                 Long userId = jwtUtil.getUserIdFromToken(token);
-                String username = jwtUtil.getUsernameFromToken(token);
-                String role = jwtUtil.getRoleFromToken(token);
+                Integer tokenVersion = jwtUtil.getTokenVersionFromToken(token);
+                User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
 
-                if (userId != null) {
+                if (user != null && tokenVersion != null && Boolean.TRUE.equals(user.getStatus())
+                        && tokenVersion.equals(user.getTokenVersion())) {
                     request.setAttribute("userId", userId);
-                }
-                if (username != null) {
-                    request.setAttribute("username", username);
-                }
-                if (role != null) {
-                    request.setAttribute("role", role);
+                    request.setAttribute("username", user.getUsername());
+                    request.setAttribute("role", user.getRole());
                 }
             }
         }
